@@ -177,6 +177,11 @@ create policy admin_all on public.access_codes for all to authenticated using (p
 -- 閲覧者（anon）からは表への権限そのものも外しておく（二重の鍵）
 revoke all on all tables in schema public from anon;
 revoke all on all sequences in schema public from anon;
+-- 管理画面（ログインした人＝authenticated）が表を読み書きできるよう、権限をはっきり与える。
+-- 実際に操作できるのは上のルール（RLS）で管理者だけ。Supabaseの「新しい表を自動で公開」をオフにしていても動くようにするため。
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant usage, select on all sequences in schema public to authenticated;
 
 -- ---------------------------------------------------------------------
 -- コードの照合

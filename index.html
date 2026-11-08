@@ -142,8 +142,20 @@ body{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:500;background:rad
 header.top{background:rgba(10,18,34,.85);backdrop-filter:blur(8px);color:var(--ink);border-bottom:2px solid var(--brand)}
 header.top .t{font-weight:900;letter-spacing:.04em}
 header.top button{background:transparent;border:1px solid #3a4a68;color:var(--ink)}
-h2{font-weight:900;font-size:1.4rem;letter-spacing:.02em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-h2::before{content:"";width:6px;height:1.1em;background:var(--brand);transform:skewX(-15deg)}
+h2{font-weight:900;font-size:1.4rem;letter-spacing:.02em;line-height:1.45}
+h2::before{content:"";display:inline-block;width:6px;height:1.05em;margin-right:10px;vertical-align:-.15em;background:var(--brand);transform:skewX(-15deg)}
+html{background:var(--bg)}
+/* 戻るボタンの帯：長いページでも常に見えるよう、ヘッダーのすぐ下に固定する */
+.backbar{position:sticky;top:var(--hdr,57px);z-index:4;display:flex;justify-content:space-between;align-items:center;gap:8px;margin:-16px -16px 10px;padding:10px 16px;background:rgba(10,18,34,.92);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+a.jump{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:2px;padding:12px 14px;margin-bottom:10px;color:var(--ink);text-decoration:none;font-weight:700}
+a.jump span{color:var(--brand);font-size:1.3rem;line-height:1}
+button.goback{background:transparent;border:1px solid var(--brand);color:var(--brand);border-radius:2px;padding:8px 16px;font-weight:900;font-size:.95rem;cursor:pointer}
+/* 上に戻るボタン（下にスクロールしたときだけ出る） */
+#toTop{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:6;width:46px;height:46px;border-radius:50%;border:1px solid var(--brand);background:var(--card);color:var(--brand);font-size:1rem;font-weight:900;cursor:pointer;display:none;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+#toTop.on{display:block}
+body.book #toTop{bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+table.uni th:first-child{white-space:nowrap;font-size:.8rem}
+button:focus-visible,a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 h3{font-family:Oswald,"Zen Kaku Gothic New",sans-serif;letter-spacing:.08em;color:var(--brand);font-weight:700}
 .card{border-radius:4px;border:1px solid var(--line);background:linear-gradient(180deg,#14213a,#101a2e)}
 .teamlist a{border-radius:2px;border:0;border-left:4px solid var(--brand);background:var(--card);font-weight:700}
@@ -207,6 +219,7 @@ table.uni th{background:var(--soft);color:var(--brand)}
 </div>
 
 <div id="print"></div>
+<button id="toTop" type="button" aria-label="ページの上に戻る">▲</button>
 
 <script src="config.js"></script>
 <script>if (new URLSearchParams(location.search).has("demo")) document.write('<script src="demo-data.js"><\/script>');</script>
@@ -376,8 +389,35 @@ const teamById = (id) => DATA.teams.find((t) => t.id === id);
 const teamName = (id) => (teamById(id) || {}).name || "（未定）";
 window.addEventListener("hashchange", () => { if (DATA) route(); });
 
+// ---- 戻る ----
+// アプリの中で開いた画面の順番を覚えておき、「‹ 戻る」で1つ前の画面（とその時の位置）に戻る。
+// 見本ページのようにブラウザの戻るが効かない場所でも使えるよう、アプリの中だけで完結させる。
+const NAV = []; let restoreY = null;
+function noteNav() {
+  const hs = location.hash || "#home";
+  if (NAV.length && NAV[NAV.length - 1].h === hs) return;
+  NAV.push({ h: hs, y: 0 });
+  if (NAV.length > 40) NAV.shift();
+}
+function goBack() {
+  NAV.pop();
+  const prev = NAV.pop();
+  if (prev) { restoreY = prev.y; location.hash = prev.h; }
+  else location.hash = "#teams";
+}
+window.addEventListener("scroll", () => {
+  if (NAV.length && !document.body.classList.contains("book")) NAV[NAV.length - 1].y = window.scrollY;
+  $("toTop").classList.toggle("on", window.scrollY > 600);
+}, { passive: true });
+$("toTop").addEventListener("click", () => window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
+document.addEventListener("click", (e) => { if (e.target.closest("[data-back]")) goBack(); });
+// ヘッダーの高さに合わせて、戻るボタンの帯をその真下に固定する
+function setHdr() { const hd = document.querySelector("header.top"); if (hd && hd.offsetHeight) document.documentElement.style.setProperty("--hdr", hd.offsetHeight + "px"); }
+window.addEventListener("resize", setHdr);
+
 function route() {
   // 画面の切り替えは #teams や #team-3 のような単純な目印で行う
+  noteNav();
   const p = location.hash.replace(/^#\/?/, "").split(/[-\/]/);
   let k = p[0] || "home", html = "";
   if (k === "teams") html = viewTeams();
@@ -388,7 +428,8 @@ function route() {
   else { k = "home"; html = viewHome(); }
   $("view").innerHTML = html;
   document.querySelectorAll("#tabs a").forEach((a) => a.classList.toggle("on", a.dataset.k === k));
-  window.scrollTo(0, 0);
+  setHdr();
+  window.scrollTo(0, restoreY || 0); restoreY = null;
   if (p[0] === "team" || p[0] === "school") loadPhoto(+p[1]);
   const sel = $("teamFilter"); if (sel) sel.addEventListener("change", () => { $("schedList").innerHTML = scheduleList(+sel.value || 0); });
 }
@@ -470,7 +511,7 @@ function playerCard(p, teamLeague) {
     <div class="dt">${d}</div></div></div>`;
 }
 const photoBox = (t) => `<div id="photoBox" class="card" style="padding:8px">${t.has_photo ? `<div class="nophoto">写真を読み込み中…</div>` : `<div class="nophoto">写真は掲載していません</div>`}</div>`;
-const backBar = (key) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><a class="back" href="#teams">‹ チーム一覧</a><button class="btn ghost" type="button" data-print-team="${key}">このページを印刷</button></div>`;
+const backBar = (key) => `<div class="backbar"><button class="goback" type="button" data-back>‹ 戻る</button><button class="btn ghost" type="button" data-print-team="${key}">このページを印刷</button></div>`;
 // チーム紹介（学校の全選手）と、リーグのチーム（そのリーグに登録された選手だけ）は同じ形で表示する
 function teamPageHtml(t, key, players, title, links) {
   return `${backBar(key)}
@@ -484,18 +525,18 @@ function teamPageHtml(t, key, players, title, links) {
 }
 function viewSchool(id) {
   const t = teamById(id);
-  if (!t) return `<a class="back" href="#teams">‹ チーム一覧</a><p>チームが見つかりません。</p>`;
+  if (!t) return `<div class="backbar"><button class="goback" type="button" data-back>‹ 戻る</button></div><p>チームが見つかりません。</p>`;
   const us = UNITS.filter((u) => u.id === t.id);
   return teamPageHtml(t, "s" + t.id, { label: "選手名鑑（全選手）", list: t.players },
     us.map((u) => `<span class="lg">${h(u.league)}</span>`).join(" "),
-    us.map((u) => `<a class="back" href="#team-${u.uid}">${h(u.league)} の登録選手を見る ›</a>`).join("<br>"));
+    us.map((u) => `<a class="jump" href="#team-${u.uid}">${h(u.league)} の登録選手を見る<span>›</span></a>`).join(""));
 }
 function viewTeam(uid) {
   const t = unitById(uid);
-  if (!t) return `<a class="back" href="#teams">‹ チーム一覧</a><p>チームが見つかりません。</p>`;
+  if (!t) return `<div class="backbar"><button class="goback" type="button" data-back>‹ 戻る</button></div><p>チームが見つかりません。</p>`;
   return teamPageHtml(t, t.uid, { label: t.league + " 登録選手", list: t.players },
     `<span class="lg">${h(t.league)}</span>`,
-    `<a class="back" href="#school-${t.id}">${h(t.name)} の全選手を見る ›</a>`);
+    `<a class="jump" href="#school-${t.id}">${h(t.name)} の全選手（チーム紹介）を見る<span>›</span></a>`);
 }
 async function getPhoto(id) {
   if (id in photoCache) return photoCache[id];

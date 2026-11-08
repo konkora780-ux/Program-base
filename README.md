@@ -26,11 +26,12 @@
 2. 左メニュー **SQL Editor** を開き、`supabase/schema.sql` の中身を全部貼り付けて **Run**。
 3. **Authentication → Sign In / Providers** で「Allow new users to sign up（新規登録を許可）」を **オフ** にする。
    （管理者以外がアカウントを作れないようにするため。作られても管理者表に入っていなければ何もできませんが、二重の鍵です）
-4. **Authentication → Users → Add user** で管理者のメールとパスワードを作る。
+4. **Authentication → Users → Add user** で管理者を作る。Email address は「ログインID@ileague.example」（例：`ileague@ileague.example`）、Auto confirm user にチェック。
+   管理画面のログインでは「@」より前（例：`ileague`）だけ入力すればよい。
 5. SQL Editor で次を実行し、その人を管理者にする（メールアドレスは置き換え）：
    ```sql
    insert into public.admins(user_id, note)
-   select id, '管理者' from auth.users where email = 'admin@example.com';
+   select id, '管理者' from auth.users where email = 'ileague@ileague.example';
    ```
 6. **Project Settings → API** の「Project URL」と「anon public key」を `config.js` に貼る。
    ※ `service_role` key（秘密の鍵）は絶対に貼らないでください。

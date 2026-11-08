@@ -56,7 +56,7 @@ code.big{font-size:1.05rem;letter-spacing:.06em}
   <div id="loginBox" class="card" style="max-width:420px">
     <h2 style="margin-top:0">管理者ログイン</h2>
     <form id="loginForm">
-      <label class="f">メールアドレス</label><input id="email" type="email" required style="width:100%">
+      <label class="f">ID</label><input id="email" type="text" required autocomplete="username" autocapitalize="off" spellcheck="false" style="width:100%">
       <label class="f">パスワード</label><input id="pw" type="password" required style="width:100%">
       <div class="row"><button class="btn">ログイン</button></div>
     </form>
@@ -167,6 +167,10 @@ code.big{font-size:1.05rem;letter-spacing:.06em}
 <script>
 "use strict";
 const CFG = window.ILEAGUE_CONFIG || {};
+// ログインIDは「ileague」のように入力するだけでよい。Supabaseはメールの形が必要なので、裏で「ID@ileague.example」に直して送る。
+// 「@」を含めて入力した場合は、そのままメールアドレスとして使う。
+const LOGIN_DOMAIN = "ileague.example";
+function loginEmail(v) { v = v.trim().toLowerCase(); return v.includes("@") ? v : v + "@" + LOGIN_DOMAIN; }
 const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 const h = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -184,7 +188,7 @@ function check(res, what) {
 // ---------- ログイン ----------
 $("loginForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const r = await sb.auth.signInWithPassword({ email: $("email").value, password: $("pw").value });
+  const r = await sb.auth.signInWithPassword({ email: loginEmail($("email").value), password: $("pw").value });
   if (r.error) return say("ログインできませんでした：" + r.error.message, false);
   start();
 });

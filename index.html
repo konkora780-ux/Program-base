@@ -78,6 +78,16 @@ select.f{padding:8px;border-radius:8px;border:1px solid var(--line);background:v
 
 /* 印刷用（画面では隠す） */
 #print{display:none}
+/* 冊子表示：画面の上で、印刷と同じ見た目のA4の紙を縦に並べる */
+@media screen{
+  body.book main,body.book nav.tabs{display:none}
+  body.book #print{display:block;padding:80px 0 48px}
+  /* 冊子表示ではヘッダー（切り替え・印刷ボタン）を画面の上に固定する */
+  body.book header.top{position:fixed;left:0;right:0;top:0}
+  body.book #print .pp{width:210mm;min-height:297mm;margin:0 auto 24px;padding:12mm;background:#fff;color:#000;box-shadow:0 6px 28px rgba(0,0,0,.5);outline:1px solid #2c3e62}
+  body.book #print .foot{display:none}
+  body.book #print .wm{z-index:4}
+}
 @media print{
   @page{size:A4 portrait;margin:12mm}
   :root{--ink:#000;--sub:#444;--line:#999;--soft:#eee;--brand:#000}
@@ -183,6 +193,7 @@ table.uni th{background:var(--soft);color:var(--brand)}
 <div id="app" class="hidden">
   <header class="top">
     <div class="t" id="hdTitle"></div>
+    <button id="viewBtn" type="button">冊子表示</button>
     <button id="printBtn" type="button">冊子を印刷</button>
     <button id="outBtn" type="button">終了</button>
   </header>
@@ -270,7 +281,7 @@ $("lockForm").addEventListener("submit", async (e) => {
 });
 
 function showLock(msg) {
-  DATA = null; CODE = "";
+  DATA = null; CODE = ""; document.body.classList.remove("book");
   $("app").classList.add("hidden"); $("lock").classList.remove("hidden");
   $("codeErr").textContent = msg || "";
 }
@@ -287,7 +298,73 @@ async function openApp() {
   document.title = DATA.season.title;
   $("lock").classList.add("hidden"); $("app").classList.remove("hidden");
   route();
+  setView(viewPref());
 }
+
+// ---- 表示の切り替え（スマホ表示 ⇄ 冊子表示）----
+// パソコン（大きい画面＋マウス）は冊子表示、スマホ・タブレットはスマホ表示で始める。
+// ボタンで切り替えた結果はこの端末に覚えておく（覚えられない端末では毎回この初期値）。
+const VKEY = "ileague_view";
+function viewPref() {
+  try { const v = localStorage.getItem(VKEY); if (v === "book" || v === "app") return v; } catch (e) {}
+  return matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)").matches ? "book" : "app";
+}
+// 印刷用の見た目（@media print の中身）を、画面の冊子表示にも使えるように写す。
+// 印刷と画面で同じ定義を使うので、片方だけ直して見た目がずれることがない。
+function mirrorPrintCss() {
+  if ($("bookCss")) return;
+  const out = [];
+  const conv = (sel) => sel.split(",").map((x) => {
+    x = x.trim();
+    if (/^(html|body|\*|#lock|#app)\b/.test(x)) return null;
+    if (x.startsWith(":root")) return "body.book #print";
+    if (x === "#print") return "body.book #print";
+    return "body.book #print " + x;
+  }).filter(Boolean).join(",");
+  for (const sh of document.styleSheets) {
+    let rules; try { rules = sh.cssRules; } catch (e) { continue; } // 外部のフォント用CSSは読めないので飛ばす
+    for (const r of rules) {
+      if (!(r.media && [...r.media].includes("print"))) continue;
+      for (const c of r.cssRules) {
+        if (!c.selectorText) continue; // @page などは画面では使わない
+        const sel = conv(c.selectorText);
+        if (sel) out.push(sel + "{" + c.style.cssText + "}");
+      }
+    }
+  }
+  const st = document.createElement("style"); st.id = "bookCss";
+  st.textContent = "@media screen{" + out.join("\n") +
+    "\nbody.book #print .pp{width:210mm;min-height:297mm;margin:0 auto 24px;padding:12mm}" +
+    "\nbody.book #print .cover,body.book #print .divpage{min-height:297mm;height:auto}}";
+  document.head.appendChild(st);
+}
+// 画面の幅がA4より狭いときは、紙ごと縮小して横にはみ出さないようにする
+function fitBook(on) {
+  if (on === undefined) on = document.body.classList.contains("book");
+  // スマホは紙がはみ出すと画面の幅そのものが広がってしまうので、端末の画面幅も見て決める
+  const w = Math.min(window.innerWidth, screen.width || window.innerWidth);
+  $("print").style.zoom = on ? Math.min(1, (w - 16) / 820).toFixed(3) : "";
+}
+window.addEventListener("resize", fitBook);
+async function setView(mode, remember) {
+  const btn = $("viewBtn");
+  if (remember) { try { localStorage.setItem(VKEY, mode); } catch (e) {} }
+  if (mode === "book") {
+    mirrorPrintCss();
+    btn.disabled = true; btn.textContent = "準備中…";
+    for (const t of DATA.teams) if (t.has_photo) await getPhoto(t.id);
+    buildPrint("");
+    fitBook(true); // 表示する前に縮小しておく
+    document.body.classList.add("book");
+    btn.disabled = false; btn.textContent = "スマホ表示";
+    window.scrollTo(0, 0);
+  } else {
+    document.body.classList.remove("book");
+    btn.textContent = "冊子表示";
+  }
+  fitBook();
+}
+$("viewBtn").addEventListener("click", () => setView(document.body.classList.contains("book") ? "app" : "book", true));
 
 $("outBtn").addEventListener("click", () => {
   if (!confirm("この端末からコードを消して終了しますか？\n次に見るときはコードの入力が必要です。")) return;
@@ -474,6 +551,7 @@ async function doPrint(btn, uid) {
   setTimeout(() => window.print(), 300);
 }
 $("printBtn").addEventListener("click", (e) => doPrint(e.currentTarget, ""));
+window.addEventListener("afterprint", () => { if (DATA && document.body.classList.contains("book")) buildPrint(""); });
 $("view").addEventListener("click", (e) => {
   const b = e.target.closest("[data-print-team]");
   if (b) doPrint(b, b.dataset.printTeam);

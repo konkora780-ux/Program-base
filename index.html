@@ -249,11 +249,17 @@ const withUnit = (v, u) => (v == null || v === "") ? "" : (/^\d+(\.\d+)?$/.test(
 const serialText = () => "No." + String(DATA.serial).padStart(4, "0");
 
 // ---- サーバー呼び出し ----
+// 新しい形式の鍵（sb_publishable_…）は apikey だけで送る。古い形式（eyJ…）は Authorization にも入れる。
+function rpcHeaders() {
+  const k = CFG.SUPABASE_ANON_KEY, h = { "Content-Type": "application/json", apikey: k };
+  if (k.startsWith("eyJ")) h.Authorization = "Bearer " + k;
+  return h;
+}
 async function rpc(fn, body) {
   if (DEMO) return demoRpc(fn, body);
   const res = await fetch(CFG.SUPABASE_URL + "/rest/v1/rpc/" + fn, {
     method: "POST",
-    headers: { "Content-Type": "application/json", apikey: CFG.SUPABASE_ANON_KEY, Authorization: "Bearer " + CFG.SUPABASE_ANON_KEY },
+    headers: rpcHeaders(),
     body: JSON.stringify(body),
   });
   if (!res.ok) { const e = new Error("rpc " + res.status); e.status = res.status; throw e; }

@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Iリーグ 管理画面</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
+<style>
+:root{--bg:#f1f4f9;--card:#fff;--ink:#0f1a2e;--sub:#56637a;--line:#d8dfea;--brand:#0a1222;--brand-ink:#fff;--accent:#c6f432;--soft:#e9eef6;--warn:#b3261e;--ok:#1e7d32}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0a1222;--card:#121d33;--ink:#eef3fb;--sub:#93a3bd;--line:#22314d;--brand:#c6f432;--brand-ink:#0a1222;--accent:#c6f432;--soft:#1a2944;--warn:#ff8a80;--ok:#81c784}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Zen Kaku Gothic New",-apple-system,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;font-weight:500;line-height:1.6}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 9px;max-width:100%}
+textarea{width:100%;min-height:120px}
+.hidden{display:none!important}
+header{background:#0a1222;color:#fff;border-bottom:3px solid var(--accent);padding:10px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+header b{flex:1}
+header select,header button{background:rgba(255,255,255,.18);color:inherit;border:0}
+main{max-width:1000px;margin:0 auto;padding:16px}
+nav.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+nav.tabs button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;cursor:pointer}
+nav.tabs button.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.btn{border:0;border-radius:8px;padding:8px 14px;background:var(--brand);color:var(--brand-ink);font-weight:700;cursor:pointer}
+.btn.sub{background:transparent;color:var(--brand);border:1px solid var(--line)}
+.btn.danger{background:var(--warn);color:#fff}
+.btn:disabled{opacity:.5}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+label.f{display:block;margin:8px 0 2px;font-size:.85rem;color:var(--sub)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{border-bottom:1px solid var(--line);padding:6px;text-align:left;vertical-align:top}
+th{background:var(--soft)}
+.scroll{overflow-x:auto}
+.muted{color:var(--sub);font-size:.85rem}
+.msg{padding:8px 12px;border-radius:8px;margin:8px 0;white-space:pre-wrap}
+.msg.ok{background:color-mix(in srgb,var(--ok) 15%,transparent)}
+.msg.ng{background:color-mix(in srgb,var(--warn) 15%,transparent)}
+.tag{font-size:.75rem;border-radius:6px;padding:1px 6px;background:var(--soft)}
+.tag.ng{background:color-mix(in srgb,var(--warn) 20%,transparent)}
+.thumb{width:120px;aspect-ratio:3/2;object-fit:cover;border-radius:6px;background:var(--line);display:block}
+code.big{font-size:1.05rem;letter-spacing:.06em}
+</style>
+</head>
+<body>
+<header>
+  <b>Iリーグ 管理画面</b>
+  <select id="seasonSel" class="hidden" aria-label="年度"></select>
+  <button id="logoutBtn" class="hidden" type="button">ログアウト</button>
+</header>
+<main>
+  <div id="msg"></div>
+
+  <!-- ログイン -->
+  <div id="loginBox" class="card" style="max-width:420px">
+    <h2 style="margin-top:0">管理者ログイン</h2>
+    <form id="loginForm">
+      <label class="f">メールアドレス</label><input id="email" type="email" required style="width:100%">
+      <label class="f">パスワード</label><input id="pw" type="password" required style="width:100%">
+      <div class="row"><button class="btn">ログイン</button></div>
+    </form>
+  </div>
+
+  <div id="adminBox" class="hidden">
+    <nav class="tabs" id="tabs">
+      <button data-t="season" class="on">年度・挨拶</button>
+      <button data-t="import">Excel取り込み</button>
+      <button data-t="teams">チーム・写真</button>
+      <button data-t="matches">日程</button>
+      <button data-t="codes">閲覧コード</button>
+    </nav>
+
+    <!-- 年度 -->
+    <section data-p="season">
+      <div class="card">
+        <h3 style="margin-top:0">年度の設定</h3>
+        <div class="row"><label>年度 <input id="sYear" type="number" style="width:7em"></label>
+          <label>コード有効期間 <input id="sFrom" type="date"> 〜 <input id="sTo" type="date"></label></div>
+        <label class="f">タイトル</label><input id="sTitle" style="width:100%">
+        <label class="f">ごあいさつ</label><textarea id="sGreeting"></textarea>
+        <label class="f">レギュレーション</label><textarea id="sRegulation"></textarea>
+        <div class="row"><label><input type="checkbox" id="sCurrent"> 現在販売中の年度にする</label></div>
+        <div class="row"><button class="btn" id="sSave">保存</button><button class="btn sub" id="sNew">新しい年度を作る</button></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">リーグ（ディビジョン）の一覧</h3>
+        <p class="muted">この年度のリーグです。名前を変えるとチーム・選手の所属表示もすべて変わります。並び順は、アプリのチーム一覧と冊子印刷の順番になります。<br>
+        削除すると、そこに所属していたチーム・選手は「未設定」になります。</p>
+        <div class="scroll"><table id="divTable"></table></div>
+        <div class="row"><input id="divNew" placeholder="例：DIVISION Ⅴ"><button class="btn sub" id="divAdd">追加</button></div>
+      </div>
+    </section>
+
+    <!-- Excel取り込み -->
+    <section data-p="import" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0">チームのExcelを取り込む</h3>
+        <p class="muted">配布したひな型（Iリーグ_掲載情報ひな型.xlsx）に記入されたファイルを選びます。複数まとめて選べます。<br>
+        同じ年度・同じチーム名のデータがある場合は上書きされ、選手名簿は丸ごと入れ替わります。<br>
+        Excelファイル自体はどこにも保存されません（このブラウザの中で読み取ります）。</p>
+        <input type="file" id="xlsIn" accept=".xlsx,.xls" multiple>
+        <div id="xlsPreview"></div>
+      </div>
+    </section>
+
+    <!-- チーム・写真 -->
+    <section data-p="teams" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0">チーム一覧</h3>
+        <p class="muted">写真は自動で縮小（長い辺1600px）してから保存します。写真は登録すると購入者に表示されます。載せたくない学校だけ「写真を掲載」のチェックを外してください。</p>
+        <div class="scroll"><table id="teamTable"></table></div>
+      </div>
+      <div class="card hidden" id="rosterBox"></div>
+    </section>
+
+    <!-- 日程 -->
+    <section data-p="matches" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0">日程を追加・修正</h3>
+        <input type="hidden" id="mId">
+        <div class="row">
+          <label>リーグ <input id="mLeague" list="divList" style="width:12em"></label><datalist id="divList"></datalist>
+          <label>節 <input id="mRound" style="width:6em" placeholder="第1節"></label>
+          <label>日付 <input id="mDate" type="date"></label>
+          <label>時間 <input id="mKick" style="width:6em" placeholder="10:00"></label>
+        </div>
+        <div class="row">
+          <label>会場 <input id="mVenue"></label>
+          <label><select id="mHome"></select></label> vs <label><select id="mAway"></select></label>
+          <label>備考 <input id="mNote"></label>
+        </div>
+        <div class="row"><button class="btn" id="mSave">保存</button><button class="btn sub" id="mClear">入力欄を空にする</button></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">日程をExcelでまとめて追加</h3>
+        <p class="muted">日程ひな型（Iリーグ_日程ひな型.xlsx）を選ぶと、その行を追加します。チーム名は登録済みの名前と完全に一致させてください。</p>
+        <input type="file" id="schedIn" accept=".xlsx,.xls">
+      </div>
+      <div class="card"><div class="scroll"><table id="matchTable"></table></div></div>
+    </section>
+
+    <!-- 閲覧コード -->
+    <section data-p="codes" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0">コードを発行</h3>
+        <p class="muted">コード本体は<b>発行したこの画面でだけ</b>表示されます（データベースには復元できない形でしか保存しないため）。必ずCSVを保存してから画面を閉じてください。<br>
+        メモには注文番号などを入れ、購入者の氏名は入れない運用をおすすめします。</p>
+        <div class="row"><label>個数 <input id="cCount" type="number" value="1" min="1" max="500" style="width:6em"></label>
+          <label>メモ <input id="cMemo" placeholder="注文番号など"></label>
+          <button class="btn" id="cIssue">発行</button></div>
+        <div id="cIssued"></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">コードを調べる・停止する</h3>
+        <div class="row"><input id="cFind" placeholder="XXXX-XXXX-XXXX"><button class="btn sub" id="cFindBtn">コードから購入番号を調べる</button></div>
+        <div id="cFound"></div>
+        <div class="scroll"><table id="codeTable"></table></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="lib/supabase.js"></script>
+<script src="lib/xlsx.full.min.js"></script>
+<script>
+"use strict";
+const CFG = window.ILEAGUE_CONFIG || {};
+const sb = window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+const $ = (id) => document.getElementById(id);
+const h = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let seasons = [], SID = null, teams = [];
+
+function say(text, ok = true) {
+  $("msg").innerHTML = `<div class="msg ${ok ? "ok" : "ng"}">${h(text)}</div>`;
+  if (ok) setTimeout(() => { $("msg").innerHTML = ""; }, 5000);
+}
+function check(res, what) {
+  if (res.error) { say(what + "に失敗しました：" + res.error.message, false); throw res.error; }
+  return res.data;
+}
+
+// ---------- ログイン ----------
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const r = await sb.auth.signInWithPassword({ email: $("email").value, password: $("pw").value });
+  if (r.error) return say("ログインできませんでした：" + r.error.message, false);
+  start();
+});
+$("logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
+
+async function start() {
+  const { data } = await sb.auth.getSession();
+  if (!data.session) return;
+  const isAdmin = (await sb.rpc("is_admin")).data;
+  if (!isAdmin) { say("このアカウントは管理者として登録されていません。", false); await sb.auth.signOut(); return; }
+  $("loginBox").classList.add("hidden");
+  $("adminBox").classList.remove("hidden");
+  $("logoutBtn").classList.remove("hidden");
+  await loadSeasons();
+}
+
+// ---------- タブ ----------
+$("tabs").addEventListener("click", (e) => {
+  const t = e.target.dataset.t; if (!t) return;
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === t));
+  document.querySelectorAll("section[data-p]").forEach((s) => s.classList.toggle("hidden", s.dataset.p !== t));
+  if (t === "teams") loadTeams();
+  if (t === "matches") loadMatches();
+  if (t === "codes") loadCodes();
+});
+
+// ---------- 年度 ----------
+async function loadSeasons(selectId) {
+  seasons = check(await sb.from("seasons").select("*").order("year", { ascending: false }), "年度の読み込み");
+  const sel = $("seasonSel");
+  if (!seasons.length) { sel.classList.add("hidden"); SID = null; fillSeason(null); return; }
+  sel.innerHTML = seasons.map((s) => `<option value="${s.id}">${h(s.year)}年度${s.is_current ? "（販売中）" : ""}</option>`).join("");
+  sel.classList.remove("hidden");
+  SID = selectId || (seasons.find((s) => s.is_current) || seasons[0]).id;
+  sel.value = SID;
+  fillSeason(seasons.find((s) => s.id === SID));
+  await loadDivisions();
+  await loadTeams();
+}
+// ---------- リーグ（ディビジョン） ----------
+let divisions = [];
+const divName = (id) => (divisions.find((d) => d.id === id) || {}).name || "未設定";
+const divOptions = (sel, blankLabel) => `<option value="">${blankLabel}</option>` + divisions.map((d) => `<option value="${d.id}" ${d.id === sel ? "selected" : ""}>${h(d.name)}</option>`).join("");
+async function loadDivisions() {
+  if (!SID) { divisions = []; $("divTable").innerHTML = ""; return; }
+  divisions = check(await sb.from("divisions").select("*").eq("season_id", SID).order("sort_order").order("id"), "リーグの読み込み");
+  $("divTable").innerHTML = `<tr><th>順</th><th>リーグ名</th><th></th></tr>` + divisions.map((d) => `
+    <tr data-id="${d.id}"><td><input type="number" value="${d.sort_order}" style="width:4.5em" data-a="dsort"></td>
+    <td><input value="${h(d.name)}" data-a="dname" style="width:100%"></td>
+    <td><button class="btn danger" data-a="ddel">削除</button></td></tr>`).join("");
+  $("divList").innerHTML = divisions.map((d) => `<option value="${h(d.name)}">`).join("");
+}
+$("divTable").addEventListener("change", async (e) => {
+  const id = +e.target.closest("tr").dataset.id, a = e.target.dataset.a;
+  const v = a === "dsort" ? { sort_order: +e.target.value || 0 } : { name: e.target.value.trim() };
+  if (a === "dname" && !v.name) return say("リーグ名を空にはできません。", false);
+  check(await sb.from("divisions").update(v).eq("id", id), "リーグの保存");
+  say("リーグを保存しました。"); await loadDivisions(); loadTeams();
+});
+$("divTable").addEventListener("click", async (e) => {
+  if (e.target.dataset.a !== "ddel") return;
+  const d = divisions.find((x) => x.id === +e.target.closest("tr").dataset.id);
+  if (!confirm(`「${d.name}」を削除しますか？ 所属していたチーム・選手は「未設定」になります。`)) return;
+  check(await sb.from("divisions").delete().eq("id", d.id), "リーグの削除");
+  say("削除しました。"); await loadDivisions(); loadTeams();
+});
+$("divAdd").addEventListener("click", async () => {
+  const name = $("divNew").value.trim(); if (!name || !SID) return;
+  const max = Math.max(0, ...divisions.map((d) => d.sort_order));
+  check(await sb.from("divisions").insert({ season_id: SID, name, sort_order: max + 1 }), "リーグの追加");
+  $("divNew").value = ""; say("追加しました。"); loadDivisions();
+});
+$("seasonSel").addEventListener("change", async (e) => { SID = +e.target.value; fillSeason(seasons.find((s) => s.id === SID)); await loadDivisions(); loadTeams(); });
+function fillSeason(s) {
+  const y = s ? s.year : new Date().getFullYear() + 1;
+  $("sYear").value = y;
+  $("sFrom").value = s ? s.valid_from : `${y}-04-01`;
+  $("sTo").value = s ? s.valid_to : `${y + 1}-03-31`;
+  $("sTitle").value = s ? s.title : `${y} Iリーグ 公式プログラム`;
+  $("sGreeting").value = s ? s.greeting : "";
+  $("sRegulation").value = s ? s.regulation : "";
+  $("sCurrent").checked = s ? s.is_current : true;
+}
+async function saveSeason(isNew) {
+  const row = { year: +$("sYear").value, title: $("sTitle").value.trim(), greeting: $("sGreeting").value,
+    regulation: $("sRegulation").value, valid_from: $("sFrom").value, valid_to: $("sTo").value,
+    is_current: $("sCurrent").checked, updated_at: new Date().toISOString() };
+  if (!row.year || !row.title || !row.valid_from || !row.valid_to) return say("年度・タイトル・有効期間を入れてください。", false);
+  if (row.is_current) check(await sb.from("seasons").update({ is_current: false }).neq("id", isNew ? -1 : SID).eq("is_current", true), "販売中の切り替え");
+  const res = isNew || !SID ? await sb.from("seasons").insert(row).select().single()
+                            : await sb.from("seasons").update(row).eq("id", SID).select().single();
+  const s = check(res, "年度の保存");
+  if (isNew || !SID) check(await sb.rpc("admin_seed_divisions", { p_season_id: s.id }), "既定のリーグ一覧の作成");
+  say("保存しました。");
+  await loadSeasons(s.id);
+}
+$("sSave").addEventListener("click", () => saveSeason(false));
+$("sNew").addEventListener("click", () => {
+  if (!confirm("入力欄の内容で新しい年度を作りますか？（年度の数字を変えてから押してください）")) return;
+  saveSeason(true);
+});
+
+// ---------- Excel取り込み ----------
+const cellText = (v) => v == null ? "" : String(v).trim();
+// 「掲載不同意」欄に × が入っている選手は、運営用には保存するが、プログラムには載せない（空欄は掲載する）
+const REFUSE = ["×", "✕", "✖", "x", "X", "ｘ", "Ｘ", "ばつ", "バツ"];
+// ひな型の「チーム情報」「選手名簿」シートを読み、取り込み用のデータにする
+function parseTeamWorkbook(wb) {
+  const info = wb.Sheets["チーム情報"], roster = wb.Sheets["選手名簿"];
+  if (!info || !roster) throw new Error("ひな型のシート（チーム情報・選手名簿）が見つかりません");
+  const rows = XLSX.utils.sheet_to_json(info, { header: 1, defval: "" });
+  const t = { name: "", manager: "", coaches: [], uniform: {}, intro: "", players: [] };
+  const UK = { "フィールド正": "field_main", "フィールド副": "field_sub", "GK正": "gk_main", "GK副": "gk_sub" };
+  for (const r of rows) {
+    const k = cellText(r[0]), v = cellText(r[1]);
+    if (k === "チーム名" || k.startsWith("学校名")) t.name = v;
+    else if (k === "監督") t.manager = v;
+    else if (/^コーチ\d*$/.test(k)) { if (v) t.coaches.push(v); }
+    else if (UK[k]) t.uniform[UK[k]] = { top: v, bottom: cellText(r[2]), socks: cellText(r[3]) };
+    else if (k.startsWith("チーム紹介")) t.intro = v;
+  }
+  const pr = XLSX.utils.sheet_to_json(roster, { header: 1, defval: "" });
+  const hi = pr.findIndex((r) => r.map(cellText).includes("背番号"));
+  if (hi < 0) throw new Error("選手名簿の見出し行（背番号…）が見つかりません");
+  const hd = pr[hi].map(cellText);
+  const col = (name) => hd.findIndex((x) => x.startsWith(name));
+  const C = { number: col("背番号"), position: col("ポジション"), name: col("名前"), name_kana: col("ふりがな"), grade: col("学年"),
+    club_u12: col("U12"), club_u15: col("U15"), height: col("身長"), consent: col("掲載") };
+  if (Object.values(C).some((i) => i < 0)) throw new Error("選手名簿の見出しが ひな型と違います");
+  C.league = col("所属リーグ"); // 空欄＝どのリーグにも所属しない（プログラムには載らない）
+  for (const r of pr.slice(hi + 1)) {
+    const p = {}; for (const k in C) p[k] = C[k] < 0 ? "" : cellText(r[C[k]]);
+    if (!p.number && !p.name && !p.position) continue; // 空行
+    p.consent = !REFUSE.includes(p.consent);
+    t.players.push(p);
+  }
+  return t;
+}
+let pending = [];
+$("xlsIn").addEventListener("change", async (e) => {
+  pending = []; let html = "";
+  for (const f of e.target.files) {
+    try {
+      const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
+      const t = parseTeamWorkbook(wb);
+      if (!t.name) throw new Error("チーム名が空です");
+      pending.push(t);
+      const nc = t.players.filter((p) => !p.consent).length;
+      html += `<tr><td>${h(f.name)}</td><td><b>${h(t.name)}</b><br><span class="muted">${h([...new Set(t.players.map((p) => p.league).filter(Boolean))].join("・") || "リーグの選手なし")}</span>${t.players.some((p) => !p.league) ? `<br><span class="tag ng">リーグ外（チーム紹介にだけ載る） ${t.players.filter((p) => !p.league).length}名</span>` : ""}</td><td>掲載 ${t.players.length - nc}名</td>
+        <td>${nc ? `<span class="tag ng">×（掲載しない） ${nc}名</span>` : `<span class="tag">×なし</span>`}</td></tr>`;
+    } catch (err) {
+      html += `<tr><td>${h(f.name)}</td><td colspan="3" style="color:var(--warn)">読み取れません：${h(err.message)}</td></tr>`;
+    }
+  }
+  $("xlsPreview").innerHTML = `<div class="scroll"><table><tr><th>ファイル</th><th>チーム</th><th>選手</th><th>掲載不同意</th></tr>${html}</table></div>
+    <p class="muted">「×」の選手も運営用に保存し、管理画面の「名簿」で確認できます。購入者向けの画面と印刷には一切載りません。</p>
+    ${pending.length ? `<button class="btn" id="xlsGo">${pending.length}チームを取り込む</button>` : ""}`;
+  const go = $("xlsGo"); if (go) go.addEventListener("click", importPending);
+});
+async function importPending() {
+  if (!SID) return say("先に「年度・挨拶」で年度を作ってください。", false);
+  $("xlsGo").disabled = true;
+  let done = 0;
+  for (const t of pending) {
+    const players = t.players;
+    const id = check(await sb.rpc("admin_import_team", { p_season_id: SID, p: { ...t, players } }), t.name + "の取り込み");
+    done++;
+  }
+  say(done + "チームを取り込みました。");
+  pending = []; $("xlsPreview").innerHTML = ""; $("xlsIn").value = "";
+  await loadTeams();
+}
+
+// ---------- チーム・写真 ----------
+async function loadTeams() {
+  if (!SID) { teams = []; $("teamTable").innerHTML = ""; return; }
+  teams = check(await sb.from("teams").select("id,name,sort_order,photo_ok,players(consent,division_id),team_photos(team_id)")
+    .eq("season_id", SID).order("sort_order").order("id"), "チームの読み込み");
+  $("teamTable").innerHTML = `<tr><th>順</th><th>チーム</th><th>選手</th><th>写真</th><th>掲載設定</th><th></th></tr>` + teams.map((t) => `
+    <tr data-id="${t.id}">
+      <td><input type="number" value="${t.sort_order}" style="width:4.5em" data-a="sort"></td>
+      <td><b>${h(t.name)}</b><br><span class="muted">${h([...new Set(t.players.filter((p) => p.division_id).map((p) => p.division_id))].sort((a, b) => divisions.findIndex((d) => d.id === a) - divisions.findIndex((d) => d.id === b)).map(divName).join("・") || "リーグの選手なし")}</span></td>
+      <td>${t.players.length}名${t.players.some((p) => !p.consent) ? `<br><span class="tag ng">× ${t.players.filter((p) => !p.consent).length}名</span>` : ""}<br><button class="btn sub" data-a="roster">名簿</button></td>
+      <td>${t.team_photos ? `<span class="tag">登録済み</span>` : `<span class="muted">未登録</span>`}<br>
+        <input type="file" accept="image/*" data-a="photo" style="max-width:180px"></td>
+      <td><label><input type="checkbox" data-a="photo_ok" ${t.photo_ok ? "checked" : ""}> 写真を掲載</label></td>
+      <td><button class="btn danger" data-a="del">削除</button></td>
+    </tr>`).join("");
+  fillTeamSelects();
+}
+$("teamTable").addEventListener("change", async (e) => {
+  const tr = e.target.closest("tr"); if (!tr) return;
+  const id = +tr.dataset.id, a = e.target.dataset.a;
+  if (a === "sort") { check(await sb.from("teams").update({ sort_order: +e.target.value || 0 }).eq("id", id), "並び順の保存"); say("並び順を保存しました。"); }
+  if (a === "photo_ok") { check(await sb.from("teams").update({ [a]: e.target.checked }).eq("id", id), "設定の保存"); say("保存しました。"); }
+  if (a === "photo" && e.target.files[0]) {
+    const url = await shrinkImage(e.target.files[0], 1600, 0.82);
+    check(await sb.from("team_photos").upsert({ team_id: id, data_url: url, updated_at: new Date().toISOString() }), "写真の保存");
+    say("写真を保存しました。掲載するには「写真を掲載」にチェックを入れてください。");
+    loadTeams();
+  }
+});
+$("teamTable").addEventListener("click", async (e) => {
+  if (e.target.dataset.a === "roster") return showRoster(+e.target.closest("tr").dataset.id);
+  if (e.target.dataset.a !== "del") return;
+  const tr = e.target.closest("tr"), t = teams.find((x) => x.id === +tr.dataset.id);
+  if (!confirm(`「${t.name}」と選手名簿・写真を削除します。元に戻せません。よろしいですか？`)) return;
+  check(await sb.from("teams").delete().eq("id", t.id), "削除");
+  say("削除しました。"); loadTeams();
+});
+// 運営用の名簿（×＝掲載不同意の選手も含めて表示。購入者には×の選手は出ない）
+async function showRoster(id) {
+  const t = teams.find((x) => x.id === id);
+  const ps = check(await sb.from("players").select("*").eq("team_id", id).order("sort_order"), "名簿の読み込み");
+  const box = $("rosterBox"); box.classList.remove("hidden");
+  box.innerHTML = `<h3 style="margin-top:0">${h(t.name)} 名簿（運営用）</h3>
+    <p class="muted">「×」の選手は掲載不同意です。この画面（管理者ログイン中）でだけ表示され、購入者向けの画面・印刷には載りません。所属リーグが「空欄」の選手はリーグのページには出ず、前半のチーム紹介（全選手）にだけ載ります。</p>
+    <div class="scroll"><table><tr><th>掲載</th><th>背番号</th><th>ポジション</th><th>名前</th><th>ふりがな</th><th>学年</th><th>U12</th><th>U15</th><th>身長</th><th>所属リーグ</th></tr>
+    ${ps.map((p) => `<tr${p.consent ? "" : ' style="background:color-mix(in srgb,var(--warn) 10%,transparent)"'}><td>${p.consent ? "○" : '<span class="tag ng">×</span>'}</td>
+      <td>${h(p.number)}</td><td>${h(p.position)}</td><td>${h(p.name)}</td><td>${h(p.name_kana)}</td><td>${h(p.grade)}</td>
+      <td>${h(p.club_u12)}</td><td>${h(p.club_u15)}</td><td>${h(p.height)}</td>
+      <td><select data-player="${p.id}">${divOptions(p.division_id, "空欄（リーグ外）")}</select></td></tr>`).join("")}</table></div>`;
+  box.scrollIntoView({ behavior: "smooth" });
+}
+$("rosterBox").addEventListener("change", async (e) => {
+  const pid = +e.target.dataset.player; if (!pid) return;
+  check(await sb.from("players").update({ division_id: +e.target.value || null }).eq("id", pid), "選手の所属リーグの保存");
+  say("選手の所属リーグを保存しました。");
+  await loadTeams(); // チーム一覧のリーグ表示を最新にする
+});
+// 写真をブラウザの中で縮小してJPEGにする（通信量と保存容量を減らすため）
+function shrinkImage(file, max, q) {
+  return new Promise((ok, ng) => {
+    const img = new Image();
+    img.onload = () => {
+      const r = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * r); c.height = Math.round(img.height * r);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src); ok(c.toDataURL("image/jpeg", q));
+    };
+    img.onerror = () => ng(new Error("画像を読み込めません"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// ---------- 日程 ----------
+let matches = [];
+function fillTeamSelects() {
+  const opts = `<option value="">（チーム）</option>` + teams.map((t) => `<option value="${t.id}">${h(t.name)}</option>`).join("");
+  $("mHome").innerHTML = opts; $("mAway").innerHTML = opts;
+}
+const tname = (id) => (teams.find((t) => t.id === id) || {}).name || "—";
+async function loadMatches() {
+  if (!SID) return;
+  if (!teams.length) await loadTeams();
+  matches = check(await sb.from("matches").select("*").eq("season_id", SID).order("match_date", { nullsFirst: false }).order("kickoff"), "日程の読み込み");
+  $("matchTable").innerHTML = `<tr><th>日付</th><th>時間</th><th>リーグ・節</th><th>対戦</th><th>会場・備考</th><th></th></tr>` + matches.map((m) => `
+    <tr data-id="${m.id}"><td>${h(m.match_date || "未定")}</td><td>${h(m.kickoff)}</td><td>${h(m.league)} ${h(m.round)}</td>
+    <td>${h(tname(m.home_team_id))} vs ${h(tname(m.away_team_id))}</td><td>${h(m.venue)}<br><span class="muted">${h(m.note)}</span></td>
+    <td><button class="btn sub" data-a="edit">修正</button> <button class="btn danger" data-a="del">削除</button></td></tr>`).join("");
+}
+function clearMatchForm() { ["mId", "mLeague", "mRound", "mDate", "mKick", "mVenue", "mNote"].forEach((k) => { $(k).value = ""; }); $("mHome").value = ""; $("mAway").value = ""; }
+$("mClear").addEventListener("click", clearMatchForm);
+$("mSave").addEventListener("click", async () => {
+  if (!SID) return say("先に年度を作ってください。", false);
+  const row = { season_id: SID, league: $("mLeague").value.trim(), round: $("mRound").value.trim(), match_date: $("mDate").value || null,
+    kickoff: $("mKick").value.trim(), venue: $("mVenue").value.trim(), note: $("mNote").value.trim(),
+    home_team_id: +$("mHome").value || null, away_team_id: +$("mAway").value || null, updated_at: new Date().toISOString() };
+  const id = +$("mId").value;
+  check(id ? await sb.from("matches").update(row).eq("id", id) : await sb.from("matches").insert(row), "日程の保存");
+  say("日程を保存しました。"); clearMatchForm(); loadMatches();
+});
+$("matchTable").addEventListener("click", async (e) => {
+  const a = e.target.dataset.a; if (!a) return;
+  const m = matches.find((x) => x.id === +e.target.closest("tr").dataset.id);
+  if (a === "del") {
+    if (!confirm("この試合を削除しますか？")) return;
+    check(await sb.from("matches").delete().eq("id", m.id), "削除"); say("削除しました。"); loadMatches();
+  } else {
+    $("mId").value = m.id; $("mLeague").value = m.league; $("mRound").value = m.round; $("mDate").value = m.match_date || "";
+    $("mKick").value = m.kickoff; $("mVenue").value = m.venue; $("mNote").value = m.note;
+    $("mHome").value = m.home_team_id || ""; $("mAway").value = m.away_team_id || "";
+    window.scrollTo(0, 0);
+  }
+});
+// 日程ひな型（リーグ・節・日付・時間・会場・ホーム・アウェイ・備考）を読み込む
+// Excelの日付は「1899/12/30からの日数」の数値で届くので、時差の影響を受けないよう UTC で計算する
+function excelDate(v) {
+  if (typeof v === "number") { const d = new Date(Date.UTC(1899, 11, 30) + Math.round(v * 86400000)); return d.toISOString().slice(0, 10); }
+  if (v instanceof Date) return v.getFullYear() + "-" + String(v.getMonth() + 1).padStart(2, "0") + "-" + String(v.getDate()).padStart(2, "0");
+  const s = cellText(v).replace(/\//g, "-"); const m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : null;
+}
+function excelTime(v) {
+  if (v instanceof Date) return v.getHours() + ":" + String(v.getMinutes()).padStart(2, "0");
+  if (typeof v === "number" && v < 1) { const mins = Math.round(v * 1440); return Math.floor(mins / 60) + ":" + String(mins % 60).padStart(2, "0"); }
+  return cellText(v);
+}
+function parseScheduleWorkbook(wb, teamList) {
+  const ws = wb.Sheets["日程"] || wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+  const hi = rows.findIndex((r) => r.map(cellText).includes("ホーム"));
+  if (hi < 0) throw new Error("見出し行（ホーム・アウェイ…）が見つかりません");
+  const hd = rows[hi].map(cellText), col = (n) => hd.findIndex((x) => x.startsWith(n));
+  const byName = Object.fromEntries(teamList.map((t) => [t.name, t.id]));
+  const out = [], errs = [];
+  rows.slice(hi + 1).forEach((r, i) => {
+    const home = cellText(r[col("ホーム")]), away = cellText(r[col("アウェイ")]);
+    if (!home && !away) return;
+    if (!(home in byName) || !(away in byName)) { errs.push(`${hi + i + 2}行目：チーム名「${!(home in byName) ? home : away}」が登録されていません`); return; }
+    out.push({ league: cellText(r[col("リーグ")]), round: cellText(r[col("節")]), match_date: excelDate(r[col("日付")]),
+      kickoff: excelTime(r[col("時間")]), venue: cellText(r[col("会場")]), note: cellText(r[col("備考")]),
+      home_team_id: byName[home], away_team_id: byName[away] });
+  });
+  return { rows: out, errs };
+}
+$("schedIn").addEventListener("change", async (e) => {
+  const f = e.target.files[0]; if (!f || !SID) return;
+  try {
+    const wb = XLSX.read(await f.arrayBuffer(), { type: "array" });
+    const { rows, errs } = parseScheduleWorkbook(wb, teams);
+    if (errs.length) { say("取り込みを中止しました。\n" + errs.join("\n"), false); return; }
+    if (!confirm(rows.length + "試合を追加します。よろしいですか？")) return;
+    check(await sb.from("matches").insert(rows.map((r) => ({ ...r, season_id: SID }))), "日程の追加");
+    say(rows.length + "試合を追加しました。"); loadMatches();
+  } catch (err) { say("読み取れません：" + err.message, false); }
+  e.target.value = "";
+});
+
+// ---------- 閲覧コード ----------
+async function loadCodes() {
+  if (!SID) return;
+  const codes = check(await sb.from("access_codes").select("*").eq("season_id", SID).order("id", { ascending: false }), "コードの読み込み");
+  const fmt = (t) => t ? new Date(t).toLocaleString("ja-JP") : "—";
+  $("codeTable").innerHTML = `<tr><th>購入番号</th><th>末尾</th><th>メモ</th><th>状態</th><th>利用回数</th><th>最終利用</th><th></th></tr>` + codes.map((c) => `
+    <tr data-id="${c.id}"><td>No.${String(c.id).padStart(4, "0")}</td><td>…${h(c.hint)}</td><td>${h(c.memo)}</td>
+    <td>${c.status === "active" ? "有効" : `<span class="tag ng">停止中</span>`}</td><td>${c.use_count}</td><td>${fmt(c.last_used_at)}</td>
+    <td>${c.status === "active" ? `<button class="btn danger" data-a="stopped">停止</button>` : `<button class="btn sub" data-a="active">再開</button>`}</td></tr>`).join("");
+}
+$("codeTable").addEventListener("click", async (e) => {
+  const a = e.target.dataset.a; if (!a) return;
+  const id = +e.target.closest("tr").dataset.id;
+  if (a === "stopped" && !confirm(`No.${String(id).padStart(4, "0")} のコードを停止しますか？ 購入者は見られなくなります。`)) return;
+  check(await sb.rpc("admin_set_code_status", { p_id: id, p_status: a }), "状態の変更");
+  say(a === "stopped" ? "停止しました。" : "再開しました。"); loadCodes();
+});
+$("cIssue").addEventListener("click", async () => {
+  if (!SID) return say("先に年度を作ってください。", false);
+  const n = +$("cCount").value;
+  if (!(n >= 1 && n <= 500)) return say("個数は1〜500で入れてください。", false);
+  $("cIssue").disabled = true;
+  try {
+    const list = check(await sb.rpc("admin_issue_codes", { p_season_id: SID, p_count: n, p_memo: $("cMemo").value.trim() }), "コードの発行");
+    const s = seasons.find((x) => x.id === SID);
+    const csv = "﻿購入番号,閲覧コード,年度,メモ\n" + list.map((c) => `No.${String(c.serial).padStart(4, "0")},${c.code},${s.year},"${$("cMemo").value.replace(/"/g, '""')}"`).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    $("cIssued").innerHTML = `<div class="msg ok">${list.length}個発行しました。この表は画面を離れると二度と表示できません。</div>
+      <a class="btn" href="${url}" download="閲覧コード_${s.year}_${Date.now()}.csv">CSVを保存</a>
+      <div class="scroll"><table><tr><th>購入番号</th><th>閲覧コード</th></tr>${list.map((c) => `<tr><td>No.${String(c.serial).padStart(4, "0")}</td><td><code class="big">${h(c.code)}</code></td></tr>`).join("")}</table></div>`;
+    loadCodes();
+  } finally { $("cIssue").disabled = false; }
+});
+$("cFindBtn").addEventListener("click", async () => {
+  const r = check(await sb.rpc("admin_find_code", { p_code: $("cFind").value }), "検索");
+  $("cFound").innerHTML = r.length ? `<div class="msg ok">購入番号 No.${String(r[0].id).padStart(4, "0")}（${r[0].status === "active" ? "有効" : "停止中"}／メモ：${h(r[0].memo) || "なし"}）</div>`
+                                   : `<div class="msg ng">該当するコードはありません。</div>`;
+});
+
+start();
+</script>
+</body>
+</html>

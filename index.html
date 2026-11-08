@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Iリーグ 公式プログラム</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Zen+Kaku+Gothic+New:wght@500;700;900&display=swap">
+<style>
+/* 色の決まり（案A：濃紺×ライム。アプリは常に夜の会場のような濃い色で表示する） */
+:root{
+  --bg:#0a1222; --card:#121d33; --ink:#eef3fb; --sub:#93a3bd; --line:#22314d;
+  --brand:#c6f432; --brand-ink:#0a1222; --soft:#1a2944; --warn:#ff7a7a; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif;line-height:1.6;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit}
+.hidden{display:none!important}
+
+/* コード入力 */
+#lock{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.lockbox{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px 20px;max-width:420px;width:100%;text-align:center}
+.lockbox h1{font-size:1.25rem;margin:0 0 4px}
+.lockbox p{color:var(--sub);font-size:.9rem;margin:4px 0 16px}
+.lockbox input{width:100%;font-size:1.3rem;letter-spacing:.12em;text-align:center;padding:12px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);text-transform:uppercase}
+.lockbox input:focus{outline:none;border-color:var(--brand)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:10px;padding:12px 18px;background:var(--brand);color:var(--brand-ink);font-weight:700;cursor:pointer}
+.btn.wide{width:100%;margin-top:12px}
+.btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--line);padding:8px 12px;font-weight:600}
+.btn:disabled{opacity:.5}
+.err{color:var(--warn);font-size:.9rem;min-height:1.5em;margin-top:8px}
+
+/* アプリ */
+header.top{position:sticky;top:0;z-index:5;background:var(--brand);color:var(--brand-ink);padding:10px 16px;display:flex;align-items:center;gap:8px}
+header.top .t{flex:1;font-weight:700;font-size:1rem;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+header.top button{background:rgba(255,255,255,.18);color:inherit;border:0;border-radius:8px;padding:6px 10px;font-size:.85rem;cursor:pointer}
+main{max-width:760px;margin:0 auto;padding:16px 16px 96px}
+nav.tabs{position:fixed;bottom:0;left:0;right:0;z-index:5;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs a{flex:1;text-align:center;padding:10px 0 12px;color:var(--sub);text-decoration:none;font-size:.8rem;font-weight:600}
+nav.tabs a.on{color:var(--brand)}
+nav.tabs a span{display:block;font-size:1.25rem;line-height:1.2}
+h2{font-size:1.15rem;margin:8px 0 12px}
+h3{font-size:1rem;margin:20px 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+.pre{white-space:pre-wrap}
+.muted{color:var(--sub);font-size:.85rem}
+.teamlist{list-style:none;margin:0;padding:0}
+.teamlist a{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:8px;color:var(--ink);text-decoration:none;font-weight:700}
+.teamlist a::after{content:"›";margin-left:auto;color:var(--sub);font-size:1.3rem}
+.lg{font-size:.75rem;background:var(--soft);color:var(--brand);border-radius:6px;padding:2px 6px;font-weight:700}
+.photo{width:100%;max-width:100%;aspect-ratio:127/89;object-fit:cover;border-radius:12px;background:var(--line);display:block}
+.nophoto{width:100%;max-width:100%;aspect-ratio:127/89;border-radius:12px;background:var(--soft);color:var(--sub);display:flex;align-items:center;justify-content:center;font-size:.9rem}
+dl.staff{display:grid;grid-template-columns:5em 1fr;gap:4px 12px;margin:0}
+dl.staff dt{color:var(--sub)}
+dl.staff dd{margin:0}
+table.uni,table.grid{width:100%;border-collapse:collapse;font-size:.9rem}
+table.uni th,table.uni td,table.grid th,table.grid td{border:1px solid var(--line);padding:6px;text-align:center}
+table.uni th,table.grid th{background:var(--soft);font-weight:600}
+.pl{display:grid;grid-template-columns:3em 1fr;gap:0 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.pl:last-child{border-bottom:0}
+.pl .no{font-size:1.4rem;font-weight:800;text-align:center;color:var(--brand);line-height:1.2}
+.pl .nm{font-weight:700}
+.pl .nm small{font-weight:600;color:var(--sub);margin-right:6px}
+.pl .dt{font-size:.82rem;color:var(--sub)}
+.pl.nc .nm{color:var(--sub);font-weight:600}
+.back{display:inline-block;margin-bottom:8px;color:var(--brand);text-decoration:none;font-weight:600}
+.day{margin-bottom:14px}
+.day h4{margin:0 0 6px;font-size:.95rem}
+.m{display:grid;grid-template-columns:3.4em 1fr;gap:2px 8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:6px;font-size:.92rem}
+.m .k{color:var(--sub)}
+.m .v{color:var(--sub);font-size:.8rem;grid-column:2}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.grid td{font-size:.78rem;white-space:nowrap}
+table.grid td.self{background:var(--line)}
+select.f{padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);margin-bottom:12px;max-width:100%}
+
+/* 印刷用（画面では隠す） */
+#print{display:none}
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  :root{--ink:#000;--sub:#444;--line:#999;--soft:#eee;--brand:#000}
+  body{background:#fff;color:#000;font-size:10pt}
+  #lock,#app{display:none!important}
+  #print{display:block}
+  .pp{break-after:page;page-break-after:always}
+  .pp:last-child{break-after:auto;page-break-after:auto}
+  .cover{text-align:center;padding-top:70mm}
+  .cover h1{font-size:22pt;margin:0 0 8mm}
+  .pp h2{font-size:14pt;border-bottom:2px solid #000;padding-bottom:2mm}
+  .pp .photo{max-height:85mm;border-radius:0}
+  table.pt{width:100%;border-collapse:collapse;font-size:8.5pt}
+  table.pt th,table.pt td{border:1px solid #777;padding:1.2mm 1.5mm;text-align:left}
+  table.pt th{background:#eee}
+  table.uni{font-size:8.5pt}
+  .divpage{padding-top:60mm}
+  .divpage .dvl{font-size:10pt;letter-spacing:.4em;border-bottom:2px solid #000;display:inline-block;padding-bottom:1mm}
+  .divpage h1{font-size:30pt;margin:4mm 0 10mm;letter-spacing:.04em}
+  .divpage ol{font-size:13pt;line-height:2;padding-left:7mm;column-count:2;column-gap:10mm}
+  .two{display:grid;grid-template-columns:1.25fr 1fr;gap:4mm;margin:3mm 0;align-items:stretch}
+  .team h2.tn{font-size:20pt;border:0;margin:0 0 3mm;padding:0}
+  .team h2.tn small{font-size:10pt;margin-left:4mm;font-weight:600}
+  /* チーム写真はL判（127×89mm）の横向きと同じ比率。比率の違う写真は中央を基準に端を切り取る */
+  .team .photo{width:100%;aspect-ratio:127/89;max-height:none;object-fit:cover}
+  .cm{border:1px solid #777;padding:2mm;font-size:9pt}
+  .unih{background:#333;color:#fff;text-align:center;font-size:7.5pt;letter-spacing:.1em}
+  .team table.uni th,.team table.uni td{padding:.6mm 1mm;font-size:7.5pt}
+  .bar{background:#111;color:#fff;font-size:9pt;padding:.6mm 3mm;letter-spacing:.08em}
+  .legend{font-size:7pt;margin:.5mm 0 1mm}
+  /* スタッフ欄の下線と次の黒い帯がくっついて、すき間だけ白く欠けて見えないよう少し離す */
+  .cols + .bar{margin-top:2.5mm}
+  .cols{column-count:3;column-gap:3mm}
+  .pb{break-inside:avoid;display:grid;grid-template-columns:5.5mm 5.5mm 19mm 1fr;align-items:center;column-gap:1mm;border-bottom:1px solid #555;padding:.6mm 0;font-size:8pt;line-height:1.25}
+  .pb .pn{font-size:10pt;text-align:center}
+  .pb .pnm{font-size:9.5pt;font-weight:700;line-height:1.1}
+  .pb .pnm.nc{font-size:8.5pt;font-weight:400}
+  .pb .pi{font-size:6pt;color:#222;line-height:1.2;min-width:0;overflow:hidden}
+  .pb .pi span{display:block;white-space:nowrap;height:1.2em}
+  .pb .pi b{font-weight:400;color:#666;margin-right:.3em}
+  .pb rt{font-size:5.5pt;font-weight:400}
+  .pb.st{grid-template-columns:14mm 1fr;font-size:9pt}
+  .pb.st .pnm{grid-row:auto}
+  .pb.st .role{text-align:justify;text-align-last:justify;width:11mm}
+  .wm{position:fixed;inset:0;z-index:10;pointer-events:none;overflow:hidden}
+  .wm div{position:absolute;left:-20%;width:140%;text-align:center;transform:rotate(-30deg);font-size:15pt;font-weight:700;color:rgba(0,0,0,.09);white-space:nowrap;letter-spacing:.1em}
+  .foot{position:fixed;bottom:0;left:0;right:0;text-align:center;font-size:7.5pt;color:#555}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+/* ===== デザイン：案A「スタジアム・ナイト」（濃紺×ライム）。上の基本の見た目を上書きする ===== */
+body{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:500;background:radial-gradient(120% 60% at 50% 0%,#16274a 0%,#0a1222 60%) fixed}
+header.top{background:rgba(10,18,34,.85);backdrop-filter:blur(8px);color:var(--ink);border-bottom:2px solid var(--brand)}
+header.top .t{font-weight:900;letter-spacing:.04em}
+header.top button{background:transparent;border:1px solid #3a4a68;color:var(--ink)}
+h2{font-weight:900;font-size:1.4rem;letter-spacing:.02em;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+h2::before{content:"";width:6px;height:1.1em;background:var(--brand);transform:skewX(-15deg)}
+h3{font-family:Oswald,"Zen Kaku Gothic New",sans-serif;letter-spacing:.08em;color:var(--brand);font-weight:700}
+.card{border-radius:4px;border:1px solid var(--line);background:linear-gradient(180deg,#14213a,#101a2e)}
+.teamlist a{border-radius:2px;border:0;border-left:4px solid var(--brand);background:var(--card);font-weight:700}
+.lg{background:var(--brand);color:var(--brand-ink);border-radius:2px;font-family:Oswald,sans-serif;letter-spacing:.06em}
+.pl .no{font-family:Oswald,sans-serif;font-size:1.9rem;color:var(--brand);font-weight:700}
+.btn{border-radius:2px;font-weight:900;letter-spacing:.1em}
+nav.tabs{background:#0a1222;border-top:1px solid var(--line)}
+table.uni th{background:var(--soft);color:var(--brand)}
+.photo,.nophoto{border-radius:2px}
+@media print{
+  :root,:root[data-theme],:root:not([data-theme="light"]){--ink:#000;--sub:#444;--line:#999;--soft:#eef2f8;--brand:#0a1222;--card:#fff;--bg:#fff;color-scheme:light}
+  html{background:#fff}
+  body{background:#fff;font-family:"Zen Kaku Gothic New",sans-serif}
+  .cover{background:#0a1222;color:#fff;padding:100mm 12mm 0;height:272mm}
+  .cover h1{font-size:26pt;font-weight:900;border-bottom:3px solid #c6f432;display:inline-block;padding-bottom:3mm}
+  .pp h2{border-bottom:3px solid #0a1222;font-weight:900}
+  .divpage{background:#0a1222;color:#fff;padding:80mm 14mm 0;height:272mm}
+  .divpage .dvl{font-family:Oswald,sans-serif;color:#c6f432;border-bottom:0;letter-spacing:.5em;font-size:12pt}
+  .divpage h1{font-family:Oswald,"Zen Kaku Gothic New",sans-serif;font-size:38pt;font-weight:700;line-height:1.1;border-left:5mm solid #c6f432;padding-left:5mm}
+  .divpage ol{font-size:13pt;color:#dfe7f3}
+  .team h2.tn{background:#0a1222;color:#fff;padding:2.5mm 4mm;font-weight:900;font-size:19pt;border-left:4mm solid #c6f432}
+  .team h2.tn small{font-family:Oswald,sans-serif;color:#c6f432;letter-spacing:.08em}
+  .bar{background:#0a1222;color:#c6f432;font-family:Oswald,sans-serif;letter-spacing:.2em;font-size:10pt}
+  .unih{background:#0a1222;color:#c6f432;font-family:Oswald,sans-serif}
+  .cm{border:0;border-left:2mm solid #0a1222;background:#eef2f8}
+  .pb{border-bottom:1px solid #b7c2d4}
+  .pb .pn{font-family:Oswald,sans-serif;font-size:13pt;font-weight:700;color:#0a1222}
+  .pb .pnm{font-weight:900}
+}
+</style>
+</head>
+<body>
+
+<div id="lock">
+  <div class="lockbox">
+    <h1 id="lockTitle">Iリーグ 公式プログラム</h1>
+    <p>ご購入時にお送りした12けたの閲覧コードを入力してください。</p>
+    <form id="lockForm" autocomplete="off">
+      <input id="codeIn" inputmode="text" maxlength="16" placeholder="XXXX-XXXX-XXXX" aria-label="閲覧コード">
+      <button class="btn wide" id="codeBtn" type="submit">ひらく</button>
+    </form>
+    <div class="err" id="codeErr" role="alert"></div>
+    <p class="muted" style="margin-top:16px">コードは購入者お一人ずつ異なります。第三者への譲渡・共有はご遠慮ください。</p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="t" id="hdTitle"></div>
+    <button id="printBtn" type="button">冊子を印刷</button>
+    <button id="outBtn" type="button">終了</button>
+  </header>
+  <main id="view"></main>
+  <nav class="tabs" id="tabs">
+    <a href="#home" data-k="home"><span>🏠</span>ホーム</a>
+    <a href="#teams" data-k="teams"><span>👥</span>チーム</a>
+    <a href="#schedule" data-k="schedule"><span>📅</span>日程</a>
+    <a href="#table" data-k="table"><span>📋</span>対戦表</a>
+  </nav>
+</div>
+
+<div id="print"></div>
+
+<script src="config.js"></script>
+<script>if (new URLSearchParams(location.search).has("demo")) document.write('<script src="demo-data.js"><\/script>');</script>
+<script>
+"use strict";
+const DEMO = new URLSearchParams(location.search).has("demo");
+const CFG = window.ILEAGUE_CONFIG || {};
+const KEY = "ileague_code";
+let CODE = "", DATA = null;
+const photoCache = {};
+
+// ---- 小道具 ----
+const $ = (id) => document.getElementById(id);
+// 画面に文字を出すときは必ずこれを通す（Excel由来の文字で画面が壊れたり悪用されたりしないように）
+const h = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const store = {
+  get() { try { return localStorage.getItem(KEY) || ""; } catch (e) { return ""; } },
+  set(v) { try { localStorage.setItem(KEY, v); } catch (e) {} },
+  del() { try { localStorage.removeItem(KEY); } catch (e) {} },
+};
+const fmtDate = (d) => {
+  if (!d) return "日程未定";
+  const t = new Date(d + "T00:00:00");
+  return (t.getMonth() + 1) + "月" + t.getDate() + "日（" + "日月火水木金土"[t.getDay()] + "）";
+};
+const shortDate = (d) => { if (!d) return "未定"; const t = new Date(d + "T00:00:00"); return (t.getMonth() + 1) + "/" + t.getDate(); };
+const withUnit = (v, u) => (v == null || v === "") ? "" : (/^\d+(\.\d+)?$/.test(String(v)) ? v + u : v);
+const serialText = () => "No." + String(DATA.serial).padStart(4, "0");
+
+// ---- サーバー呼び出し ----
+async function rpc(fn, body) {
+  if (DEMO) return demoRpc(fn, body);
+  const res = await fetch(CFG.SUPABASE_URL + "/rest/v1/rpc/" + fn, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: CFG.SUPABASE_ANON_KEY, Authorization: "Bearer " + CFG.SUPABASE_ANON_KEY },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) { const e = new Error("rpc " + res.status); e.status = res.status; throw e; }
+  return res.json();
+}
+async function demoRpc(fn, body) {
+  await new Promise((r) => setTimeout(r, 150));
+  const ok = body.p_code.replace(/[^A-Z0-9]/gi, "").toUpperCase() === "DEMODEMODEMO";
+  if (fn === "verify_code") return ok ? { ok: true, serial: 9999, season: window.ILEAGUE_DEMO.season.title } : { ok: false };
+  if (!ok) { const e = new Error("invalid"); e.status = 400; throw e; }
+  if (fn === "get_program") return window.ILEAGUE_DEMO;
+  if (fn === "get_team_photo") { const t = window.ILEAGUE_DEMO.teams.find((x) => x.id === body.p_team_id); return t && t.has_photo ? window.ILEAGUE_DEMO_PHOTO(t.name) : null; }
+}
+
+// ---- コード入力 ----
+let fails = 0, waitUntil = 0;
+$("codeIn").addEventListener("input", (e) => {
+  const raw = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12);
+  e.target.value = raw.replace(/(.{4})(?=.)/g, "$1-");
+});
+$("lockForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const now = Date.now();
+  if (now < waitUntil) { $("codeErr").textContent = Math.ceil((waitUntil - now) / 1000) + "秒ほど待ってから、もう一度お試しください。"; return; }
+  const code = $("codeIn").value.trim();
+  if (code.replace(/-/g, "").length !== 12) { $("codeErr").textContent = "12けたで入力してください。"; return; }
+  $("codeBtn").disabled = true; $("codeErr").textContent = "";
+  try {
+    const r = await rpc("verify_code", { p_code: code });
+    if (r && r.ok) { CODE = code; store.set(code); fails = 0; await openApp(); }
+    else {
+      fails++; if (fails >= 5) { waitUntil = Date.now() + 30000; fails = 0; }
+      $("codeErr").textContent = "コードが正しくないか、有効期間外・停止中のコードです。";
+    }
+  } catch (err) { $("codeErr").textContent = "通信できませんでした。電波の良いところでお試しください。"; }
+  $("codeBtn").disabled = false;
+});
+
+function showLock(msg) {
+  DATA = null; CODE = "";
+  $("app").classList.add("hidden"); $("lock").classList.remove("hidden");
+  $("codeErr").textContent = msg || "";
+}
+
+async function openApp() {
+  try { DATA = await rpc("get_program", { p_code: CODE }); }
+  catch (err) {
+    if (err.status && err.status < 500) { store.del(); showLock("このコードは現在使えません（有効期間の終了・停止など）。"); }
+    else showLock("通信できませんでした。電波の良いところでお試しください。");
+    return;
+  }
+  buildUnits();
+  $("hdTitle").textContent = DATA.season.title;
+  document.title = DATA.season.title;
+  $("lock").classList.add("hidden"); $("app").classList.remove("hidden");
+  route();
+}
+
+$("outBtn").addEventListener("click", () => {
+  if (!confirm("この端末からコードを消して終了しますか？\n次に見るときはコードの入力が必要です。")) return;
+  store.del(); $("codeIn").value = ""; showLock(""); location.hash = "";
+});
+
+// ---- 画面の切り替え ----
+const teamById = (id) => DATA.teams.find((t) => t.id === id);
+const teamName = (id) => (teamById(id) || {}).name || "（未定）";
+window.addEventListener("hashchange", () => { if (DATA) route(); });
+
+function route() {
+  // 画面の切り替えは #teams や #team-3 のような単純な目印で行う
+  const p = location.hash.replace(/^#\/?/, "").split(/[-\/]/);
+  let k = p[0] || "home", html = "";
+  if (k === "teams") html = viewTeams();
+  else if (k === "team") { html = viewTeam(p.slice(1).join("-")); k = "teams"; }
+  else if (k === "school") { html = viewSchool(+p[1]); k = "teams"; }
+  else if (k === "schedule") html = viewSchedule();
+  else if (k === "table") html = viewTable();
+  else { k = "home"; html = viewHome(); }
+  $("view").innerHTML = html;
+  document.querySelectorAll("#tabs a").forEach((a) => a.classList.toggle("on", a.dataset.k === k));
+  window.scrollTo(0, 0);
+  if (p[0] === "team" || p[0] === "school") loadPhoto(+p[1]);
+  const sel = $("teamFilter"); if (sel) sel.addEventListener("change", () => { $("schedList").innerHTML = scheduleList(+sel.value || 0); });
+}
+
+function viewHome() {
+  const s = DATA.season;
+  return `<h2>${h(s.title)}</h2>
+  <div class="card"><h3 style="margin-top:0">ごあいさつ</h3><div class="pre">${h(s.greeting) || '<span class="muted">準備中です</span>'}</div></div>
+  <div class="card"><h3 style="margin-top:0">レギュレーション</h3><div class="pre">${h(s.regulation) || '<span class="muted">準備中です</span>'}</div></div>
+  <p class="muted">購入番号 ${h(serialText())}／有効期限 ${h(s.valid_to)}<br>内容は随時更新されます。</p>`;
+}
+
+// 1つの学校が複数リーグにチームを持つため、「学校 × リーグ」を1チーム（ユニット）として扱う。
+// 選手の所属リーグごとに名簿を分け、リーグの並び順 → 学校の並び順に並べる。
+// 所属リーグが空欄の選手はどのリーグの名簿にも入らない（学校のチーム紹介には全選手が載るので、そこで見られる）。
+let UNITS = [];
+function buildUnits() {
+  const order = DATA.divisions || [];
+  const rank = (lg) => (lg ? (order.indexOf(lg) < 0 ? 900 : order.indexOf(lg)) : 1000);
+  const list = [];
+  DATA.teams.forEach((t, ti) => {
+    const groups = new Map();
+    for (const p of t.players) {
+      const lg = p.league || "";
+      if (!lg) continue;
+      if (!groups.has(lg)) groups.set(lg, []);
+      groups.get(lg).push(p);
+    }
+    for (const [lg, players] of groups) {
+      list.push({ ...t, league: lg, players, uid: t.id + "-" + (rank(lg) < 900 ? rank(lg) : "x" + encodeURIComponent(lg).replace(/[^A-Za-z0-9]/g, "")), _r: rank(lg), _ti: ti });
+    }
+  });
+  UNITS = list.sort((a, b) => a._r - b._r || (a._r === 900 ? a.league.localeCompare(b.league, "ja") : 0) || a._ti - b._ti);
+}
+const unitById = (uid) => UNITS.find((u) => u.uid === uid);
+function leagues() { return [...new Set(UNITS.map((u) => u.league))].filter(Boolean); }
+
+function viewTeams() {
+  if (!DATA.teams.length) return `<h2>チーム一覧</h2><p class="muted">準備中です</p>`;
+  // 冊子と同じ順：はじめに全学校のチーム紹介、次にリーグごとのチーム
+  return `<h2>チーム一覧</h2><h3>チーム紹介（全選手）</h3>
+    <ul class="teamlist">${DATA.teams.map((t) => `<li><a href="#school-${t.id}">${h(t.name)}</a></li>`).join("")}</ul>` +
+    leagues().map((lg) => `<h3>${h(lg)}</h3>
+    <ul class="teamlist">${UNITS.filter((u) => u.league === lg).map((u) =>
+      `<li><a href="#team-${u.uid}">${h(u.name)}</a></li>`).join("")}</ul>`).join("");
+}
+
+// 現行冊子と同じ並び（行：シャツ・ショーツ・ストッキング／列：フィールド正副・GK正副）
+function uniformTable(u) {
+  u = u || {};
+  const cols = ["field_main", "field_sub", "gk_main", "gk_sub"].map((k) => u[k] || {});
+  const row = (label, key) => `<tr><th>${label}</th>${cols.map((x) => `<td>${h(x[key])}</td>`).join("")}</tr>`;
+  // 列幅を固定し、フィールド正・副とGK正・副の4列を同じ幅にそろえる
+  return `<table class="uni" style="table-layout:fixed"><colgroup><col style="width:28%"><col style="width:18%"><col style="width:18%"><col style="width:18%"><col style="width:18%"></colgroup><tr><th rowspan="2"></th><th colspan="2">フィールド</th><th colspan="2">GK</th></tr>
+    <tr><th>正</th><th>副</th><th>正</th><th>副</th></tr>
+    ${row("シャツ", "top")}${row("ショーツ", "bottom")}${row("ストッキング", "socks")}</table>`;
+}
+// 「姓 名」と「せい めい」の区切りが合えば、姓・名それぞれの上にふりがなを付ける
+function rubyName(name, kana) {
+  if (!kana) return h(name);
+  const n = String(name).trim().split(/[\s　]+/), k = String(kana).trim().split(/[\s　]+/);
+  if (n.length === k.length) return n.map((x, i) => `<ruby>${h(x)}<rt>${h(k[i])}</rt></ruby>`).join("　");
+  return `<ruby>${h(name)}<rt>${h(kana)}</rt></ruby>`;
+}
+function staffList(t) {
+  return `<dl class="staff"><dt>監督</dt><dd>${h(t.manager) || "—"}</dd>
+    <dt>コーチ</dt><dd>${t.coaches && t.coaches.length ? t.coaches.map(h).join("<br>") : "—"}</dd></dl>`;
+}
+// teamLeague と違うリーグに所属する選手には、リーグ名の小さな札を付ける
+function playerCard(p, teamLeague) {
+  if (!p.consent) {
+    return `<div class="pl nc"><div class="no">${h(p.number)}</div><div>
+      <div class="nm"><small>${h(p.position)}</small>（掲載なし）　${h(withUnit(p.grade, "年"))}</div></div></div>`;
+  }
+  const d = [["U12", p.club_u12], ["U15", p.club_u15], ["身長", withUnit(p.height, "cm")]]
+    .filter((x) => x[1]).map((x) => `${x[0]}：${h(x[1])}`).join("　");
+  return `<div class="pl"><div class="no">${h(p.number)}</div><div>
+    <div class="nm"><small>${h(p.position)}</small>${rubyName(p.name, p.name_kana)}　<small>${h(withUnit(p.grade, "年"))}</small>${p.league && p.league !== teamLeague ? ` <span class="lg">${h(p.league)}</span>` : ""}</div>
+    <div class="dt">${d}</div></div></div>`;
+}
+const photoBox = (t) => `<div id="photoBox" class="card" style="padding:8px">${t.has_photo ? `<div class="nophoto">写真を読み込み中…</div>` : `<div class="nophoto">写真は掲載していません</div>`}</div>`;
+const backBar = (key) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><a class="back" href="#teams">‹ チーム一覧</a><button class="btn ghost" type="button" data-print-team="${key}">このページを印刷</button></div>`;
+// チーム紹介（学校の全選手）と、リーグのチーム（そのリーグに登録された選手だけ）は同じ形で表示する
+function teamPageHtml(t, key, players, title, links) {
+  return `${backBar(key)}
+  <h2>${h(t.name)} ${title}</h2>
+  ${photoBox(t)}
+  ${t.intro ? `<div class="card"><h3 style="margin-top:0">チーム紹介</h3><div class="pre">${h(t.intro)}</div></div>` : ""}
+  <div class="card"><h3 style="margin-top:0">スタッフ</h3>${staffList(t)}</div>
+  <div class="card"><h3 style="margin-top:0">ユニフォーム</h3>${uniformTable(t.uniform)}</div>
+  ${links}
+  <div class="card"><h3 style="margin-top:0">${players.label}（${players.list.length}名）</h3>${players.list.map((p) => playerCard(p, t.league || "")).join("") || '<p class="muted">準備中です</p>'}</div>`;
+}
+function viewSchool(id) {
+  const t = teamById(id);
+  if (!t) return `<a class="back" href="#teams">‹ チーム一覧</a><p>チームが見つかりません。</p>`;
+  const us = UNITS.filter((u) => u.id === t.id);
+  return teamPageHtml(t, "s" + t.id, { label: "選手名鑑（全選手）", list: t.players },
+    us.map((u) => `<span class="lg">${h(u.league)}</span>`).join(" "),
+    us.map((u) => `<a class="back" href="#team-${u.uid}">${h(u.league)} の登録選手を見る ›</a>`).join("<br>"));
+}
+function viewTeam(uid) {
+  const t = unitById(uid);
+  if (!t) return `<a class="back" href="#teams">‹ チーム一覧</a><p>チームが見つかりません。</p>`;
+  return teamPageHtml(t, t.uid, { label: t.league + " 登録選手", list: t.players },
+    `<span class="lg">${h(t.league)}</span>`,
+    `<a class="back" href="#school-${t.id}">${h(t.name)} の全選手を見る ›</a>`);
+}
+async function getPhoto(id) {
+  if (id in photoCache) return photoCache[id];
+  try { photoCache[id] = await rpc("get_team_photo", { p_code: CODE, p_team_id: id }); }
+  catch (e) { photoCache[id] = null; }
+  return photoCache[id];
+}
+async function loadPhoto(id) {
+  const t = teamById(id); if (!t || !t.has_photo) return;
+  const src = await getPhoto(id);
+  const box = $("photoBox"); if (!box) return;
+  box.innerHTML = src ? `<img class="photo" alt="${h(t.name)} チーム写真" src="${h(src)}">` : `<div class="nophoto">写真を読み込めませんでした</div>`;
+}
+
+function scheduleList(teamId) {
+  const ms = DATA.matches.filter((m) => !teamId || m.home === teamId || m.away === teamId);
+  if (!ms.length) return `<p class="muted">日程は準備中です</p>`;
+  const days = {};
+  ms.forEach((m) => { (days[m.date || ""] = days[m.date || ""] || []).push(m); });
+  return Object.keys(days).sort((a, b) => (a || "9") < (b || "9") ? -1 : 1).map((d) => `<div class="day"><h4>${h(fmtDate(d))}</h4>${days[d].map((m) => `
+    <div class="m"><div class="k">${h(m.kickoff)}</div><div><b>${h(teamName(m.home))}</b> vs <b>${h(teamName(m.away))}</b></div>
+    <div class="v">${[m.league, m.round, m.venue, m.note].filter(Boolean).map(h).join("・")}</div></div>`).join("")}</div>`).join("");
+}
+function viewSchedule() {
+  return `<h2>日程</h2>
+  <select class="f" id="teamFilter" aria-label="チームで絞り込み"><option value="">すべてのチーム</option>${DATA.teams.map((t) => `<option value="${t.id}">${h(t.name)}</option>`).join("")}</select>
+  <div id="schedList">${scheduleList(0)}</div>
+  <p class="muted">日程は変更になる場合があります。最新情報は協会のお知らせもご確認ください。</p>`;
+}
+
+function matrix(lg) {
+  const ts = UNITS.filter((u) => u.league === lg);
+  // 同じ学校どうしでも別リーグの試合が混ざらないよう、日程の「リーグ」が一致する試合だけを数える
+  const cell = (a, b) => DATA.matches.filter((m) => (!m.league || m.league === lg) && ((m.home === a.id && m.away === b.id) || (m.home === b.id && m.away === a.id)))
+    .map((m) => h((m.round ? m.round + " " : "") + shortDate(m.date))).join("<br>");
+  return `<div class="scroll"><table class="grid"><tr><th></th>${ts.map((t) => `<th>${h(t.name)}</th>`).join("")}</tr>
+    ${ts.map((a) => `<tr><th>${h(a.name)}</th>${ts.map((b) => a.id === b.id ? `<td class="self"></td>` : `<td>${cell(a, b)}</td>`).join("")}</tr>`).join("")}</table></div>`;
+}
+function viewTable() {
+  if (!DATA.teams.length) return `<h2>対戦表</h2><p class="muted">準備中です</p>`;
+  return `<h2>対戦表</h2>` + leagues().map((lg) => `${lg ? `<h3>${h(lg)}</h3>` : ""}${matrix(lg)}`).join("") +
+    `<p class="muted">表は各チーム同士の対戦の節と日付です。横にスクロールできます。</p>`;
+}
+
+// ---- 印刷（A4冊子） ----
+// 冊子（全体）印刷と、チームごとの印刷の2種類。teamId を渡すとそのチームのページだけを作る
+async function doPrint(btn, uid) {
+  const label = btn.textContent; btn.disabled = true; btn.textContent = "準備中…";
+  const targets = !uid ? DATA.teams : uid[0] === "s" ? DATA.teams.filter((t) => "s" + t.id === uid) : UNITS.filter((u) => u.uid === uid);
+  for (const t of targets) if (t.has_photo) await getPhoto(t.id);
+  buildPrint(uid);
+  btn.disabled = false; btn.textContent = label;
+  setTimeout(() => window.print(), 300);
+}
+$("printBtn").addEventListener("click", (e) => doPrint(e.currentTarget, ""));
+$("view").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-print-team]");
+  if (b) doPrint(b, b.dataset.printTeam);
+});
+// 印刷の選手情報は「学年・身長／U12／U15」の3行に統一し、長い名前は1行に収まるよう文字を小さく・細くする
+const PI_WIDTH_PX = 27 / 25.4 * 96 * 0.97; // 1行の幅（約27mm）を画面の点の数に直したもの
+const PI_BASE_PT = 6, PI_MIN_PT = 4.5;
+let piCanvas;
+function piLine(text, label) {
+  const t = String(text ?? "").trim();
+  const full = (label ? label + " " : "") + t;
+  piCanvas = piCanvas || document.createElement("canvas").getContext("2d");
+  piCanvas.font = `${PI_BASE_PT * 4 / 3}px -apple-system,"Hiragino Sans","Noto Sans JP",sans-serif`;
+  const w = piCanvas.measureText(full).width;
+  let style = "";
+  if (w > PI_WIDTH_PX) {
+    const pt = Math.max(PI_MIN_PT, PI_BASE_PT * PI_WIDTH_PX / w);
+    const rest = PI_WIDTH_PX / (w * pt / PI_BASE_PT);
+    style = ` style="font-size:${pt.toFixed(2)}pt${rest < 1 ? `;transform:scaleX(${rest.toFixed(3)});transform-origin:left` : ""}"`;
+  }
+  return `<span${style}>${label ? `<b>${label}</b>` : ""}${h(t)}</span>`;
+}
+// 印刷の選手1人分（現行冊子にならい、3段組のブロックで並べる）
+function playerBlock(p) {
+  return p.consent
+    ? `<div class="pb"><div class="pn">${h(p.number)}</div><div class="pp2">${h(p.position)}</div><div class="pnm">${rubyName(p.name, p.name_kana)}</div>
+        <div class="pi">${piLine(withUnit(p.grade, "年") + "　" + withUnit(p.height, "cm"))}${piLine(p.club_u12, "U12")}${piLine(p.club_u15, "U15")}</div></div>`
+    : `<div class="pb"><div class="pn">${h(p.number)}</div><div class="pp2">${h(p.position)}</div><div class="pnm nc">（掲載なし）</div><div class="pi">${h(withUnit(p.grade, "年"))}</div></div>`;
+}
+function buildPrint(uid) {
+  const s = DATA.season, sn = serialText();
+  const mark = `購入番号 ${sn}　無断複製・配布禁止`;
+  const wm = `<div class="wm">${Array.from({ length: 12 }, (_, i) => `<div style="top:${i * 9 - 5}%">${h(mark)}　　${h(mark)}　　${h(mark)}</div>`).join("")}</div>`;
+  // 前半：学校ごとのチーム紹介ページ（写真・紹介文・ユニフォーム・スタッフ・全選手）
+  // 後半のリーグごとのページも同じ形で、選手だけ「そのリーグに登録された選手」に絞る（t がリーグのチームのとき）
+  const schoolPage = (t) => {
+    const photo = t.has_photo && photoCache[t.id] ? `<img class="photo" alt="" src="${h(photoCache[t.id])}">` : "";
+    // 役職名は同じ幅に両端そろえ、名前の書き出し位置をそろえる
+    const staff = `<div class="pb st"><div class="role">監督</div><div class="pnm">${h(t.manager)}</div></div>` +
+      (t.coaches || []).map((c) => `<div class="pb st"><div class="role">コーチ</div><div class="pnm">${h(c)}</div></div>`).join("");
+    const lgs = t.league ? [t.league] : UNITS.filter((u) => u.id === t.id).map((u) => u.league);
+    return `<section class="pp team"><h2 class="tn">${h(t.name)}${lgs.length ? `<small>${h(lgs.join("・"))}</small>` : ""}</h2>${photo}
+      <div class="two">${t.intro ? `<div class="cm pre">${h(t.intro)}</div>` : "<div></div>"}<div><div class="unih">UNIFORM</div>${uniformTable(t.uniform)}</div></div>
+      <div class="bar">STAFF</div><div class="cols">${staff}</div>
+      ${t.players.length ? `<div class="bar">PLAYERS</div><div class="legend">背番号／ポジション／氏名／学年・身長／U-12所属／U-15所属</div><div class="cols">${t.players.map(playerBlock).join("")}</div>` : ""}</section>`;
+  };
+  const rosterPage = schoolPage;
+  if (uid) {
+    const page = uid[0] === "s" ? schoolPage(DATA.teams.find((t) => "s" + t.id === uid)) : rosterPage(unitById(uid));
+    $("print").innerHTML = wm + `<div class="foot">${h(s.title)}　${h(mark)}</div>` + page;
+    return;
+  }
+  $("print").innerHTML = wm + `<div class="foot">${h(s.title)}　${h(mark)}</div>
+    <section class="pp cover"><h1>${h(s.title)}</h1><p>購入番号 ${h(sn)}</p><p style="font-size:9pt">印刷日 ${new Date().toLocaleDateString("ja-JP")}</p></section>
+    <section class="pp"><h2>ごあいさつ</h2><div class="pre">${h(s.greeting)}</div><h2>レギュレーション</h2><div class="pre">${h(s.regulation)}</div></section>
+    <section class="pp"><h2>日程</h2>${scheduleList(0)}<h2>対戦表</h2>${leagues().map((lg) => `${lg ? `<h3>${h(lg)}</h3>` : ""}${matrix(lg)}`).join("")}</section>
+    <section class="pp divpage"><div class="dvl">TEAMS</div><h1>チーム紹介</h1>
+      <ol>${DATA.teams.map((t) => `<li>${h(t.name)}</li>`).join("")}</ol></section>
+    ${DATA.teams.map(schoolPage).join("")}
+    ${leagues().map((lg) => {
+      const us = UNITS.filter((u) => u.league === lg);
+      // リーグごとの見出し（扉）ページ：リーグ名と、そのリーグのチーム一覧
+      return `<section class="pp divpage"><div class="dvl">LEAGUE</div><h1>${h(lg || "リーグ未設定")}</h1>
+        <ol>${us.map((u) => `<li>${h(u.name)}</li>`).join("")}</ol></section>` + us.map(rosterPage).join("");
+    }).join("")}`;
+}
+
+// ---- 起動 ----
+(async function start() {
+  if (DEMO) { $("lockTitle").textContent = "見本モード（コード：DEMO-DEMO-DEMO）"; }
+  const saved = store.get();
+  if (saved) { CODE = saved; await openApp(); }
+})();
+</script>
+</body>
+</html>

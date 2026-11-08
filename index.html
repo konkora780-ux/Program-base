@@ -205,8 +205,7 @@ table.uni th{background:var(--soft);color:var(--brand)}
 <div id="app" class="hidden">
   <header class="top">
     <div class="t" id="hdTitle"></div>
-    <button id="viewBtn" type="button">冊子表示</button>
-    <button id="printBtn" type="button">冊子を印刷</button>
+    <button id="viewBtn" type="button" class="hidden">冊子表示</button>
     <button id="outBtn" type="button">終了</button>
   </header>
   <main id="view"></main>
@@ -359,25 +358,43 @@ function fitBook(on) {
   $("print").style.zoom = on ? Math.min(1, (w - 16) / 820).toFixed(3) : "";
 }
 window.addEventListener("resize", fitBook);
-async function setView(mode, remember) {
+// 冊子表示で見ている範囲（""＝冊子まるごと、"s1"＝学校のチーム紹介、"1-0"＝リーグのチーム）
+let BOOKSCOPE = "";
+// いま開いている学校・チームのページの印（そのほかのページでは null）
+function pageKey() {
+  const m = location.hash.match(/^#school-(\d+)$/); if (m) return "s" + m[1];
+  const n = location.hash.match(/^#team-(.+)$/); return n && unitById(n[1]) ? n[1] : null;
+}
+// 右上のボタン：学校・チームのページでは「冊子表示」（そのチームだけ）、冊子表示中は「スマホ表示」
+function updViewBtn() {
+  const btn = $("viewBtn"), book = document.body.classList.contains("book");
+  btn.textContent = book ? "スマホ表示" : "冊子表示";
+  btn.classList.toggle("hidden", !book && !pageKey());
+}
+async function setView(mode, remember, scope) {
   const btn = $("viewBtn");
   if (remember) { try { localStorage.setItem(VKEY, mode); } catch (e) {} }
   if (mode === "book") {
+    BOOKSCOPE = scope || "";
     mirrorPrintCss();
     btn.disabled = true; btn.textContent = "準備中…";
-    for (const t of DATA.teams) if (t.has_photo) await getPhoto(t.id);
-    buildPrint("");
+    const targets = !BOOKSCOPE ? DATA.teams : BOOKSCOPE[0] === "s" ? DATA.teams.filter((t) => "s" + t.id === BOOKSCOPE) : UNITS.filter((u) => u.uid === BOOKSCOPE);
+    for (const t of targets) if (t.has_photo) await getPhoto(t.id);
+    buildPrint(BOOKSCOPE);
     fitBook(true); // 表示する前に縮小しておく
     document.body.classList.add("book");
-    btn.disabled = false; btn.textContent = "スマホ表示";
+    btn.disabled = false;
     window.scrollTo(0, 0);
   } else {
     document.body.classList.remove("book");
-    btn.textContent = "冊子表示";
   }
+  updViewBtn();
   fitBook();
 }
-$("viewBtn").addEventListener("click", () => setView(document.body.classList.contains("book") ? "app" : "book", true));
+$("viewBtn").addEventListener("click", () => {
+  if (document.body.classList.contains("book")) setView("app", !BOOKSCOPE); // まるごと表示から戻したときだけ「スマホ表示」を覚える
+  else setView("book", false, pageKey());
+});
 
 $("outBtn").addEventListener("click", () => {
   if (!confirm("この端末からコードを消して終了しますか？\n次に見るときはコードの入力が必要です。")) return;
@@ -428,7 +445,7 @@ function route() {
   else { k = "home"; html = viewHome(); }
   $("view").innerHTML = html;
   document.querySelectorAll("#tabs a").forEach((a) => a.classList.toggle("on", a.dataset.k === k));
-  setHdr();
+  setHdr(); updViewBtn();
   window.scrollTo(0, restoreY || 0); restoreY = null;
   if (p[0] === "team" || p[0] === "school") loadPhoto(+p[1]);
   const sel = $("teamFilter"); if (sel) sel.addEventListener("change", () => { $("schedList").innerHTML = scheduleList(+sel.value || 0); });
@@ -437,6 +454,9 @@ function route() {
 function viewHome() {
   const s = DATA.season;
   return `<h2>${h(s.title)}</h2>
+  <div class="card"><h3 style="margin-top:0">冊子（全チーム）</h3>
+    <p class="muted" style="margin:0 0 12px">印刷と同じ見た目で、表紙から全部のチームまで通して見られます。</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" data-book-all>冊子をまるごと見る</button><button class="btn ghost" type="button" data-print-all>冊子を印刷</button></div></div>
   <div class="card"><h3 style="margin-top:0">ごあいさつ</h3><div class="pre">${h(s.greeting) || '<span class="muted">準備中です</span>'}</div></div>
   <div class="card"><h3 style="margin-top:0">レギュレーション</h3><div class="pre">${h(s.regulation) || '<span class="muted">準備中です</span>'}</div></div>
   <p class="muted">購入番号 ${h(serialText())}／有効期限 ${h(s.valid_to)}<br>内容は随時更新されます。</p>`;
@@ -591,11 +611,13 @@ async function doPrint(btn, uid) {
   btn.disabled = false; btn.textContent = label;
   setTimeout(() => window.print(), 300);
 }
-$("printBtn").addEventListener("click", (e) => doPrint(e.currentTarget, ""));
-window.addEventListener("afterprint", () => { if (DATA && document.body.classList.contains("book")) buildPrint(""); });
+window.addEventListener("afterprint", () => { if (DATA && document.body.classList.contains("book")) buildPrint(BOOKSCOPE); });
 $("view").addEventListener("click", (e) => {
   const b = e.target.closest("[data-print-team]");
   if (b) doPrint(b, b.dataset.printTeam);
+  // ホームの「冊子をまるごと見る」「冊子を印刷」
+  if (e.target.closest("[data-book-all]")) setView("book", true, "");
+  const pa = e.target.closest("[data-print-all]"); if (pa) doPrint(pa, "");
 });
 // 印刷の選手情報は「学年・身長／U12／U15」の3行に統一し、長い名前は1行に収まるよう文字を小さく・細くする
 const PI_WIDTH_PX = 27 / 25.4 * 96 * 0.97; // 1行の幅（約27mm）を画面の点の数に直したもの

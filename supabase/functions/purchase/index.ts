@@ -1,4 +1,4 @@
-// Iリーグ デジタルプログラム：ネット購入（Stripe）用のサーバー側プログラム（Supabase Edge Function）
+// Iリーグ デジタルプログラム：ネット購入（Stripe）用のサーバー側プログラム（Supabase Edge Function）【版2】
 //
 // できること
 //   action "claim"   … 支払いが終わった人に閲覧コードを渡す（Stripeに「本当に支払い済みか」を問い合わせてから発行）
@@ -12,7 +12,20 @@
 const STRIPE_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const PAYMENT_LINK = Deno.env.get("STRIPE_PAYMENT_LINK") ?? "";
 const SB_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+// サーバー専用の鍵。Supabaseの鍵の形式が新旧どちらでも見つけられるようにしておく。
+// どれも無いときは、Secrets に DB_SECRET_KEY（sb_secret_…）を自分で登録すれば使われる。
+function serverKey(): string {
+  for (const name of ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY", "DB_SECRET_KEY"]) {
+    const v = Deno.env.get(name);
+    if (v) return v;
+  }
+  const many = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (many) {
+    try { const o = JSON.parse(many); return o.default ?? Object.values(o)[0] ?? ""; } catch { return many; }
+  }
+  return "";
+}
+const SB_KEY = serverKey();
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

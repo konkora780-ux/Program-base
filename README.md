@@ -52,7 +52,7 @@
 3. Stripe の「設定 → カスタマーへのメール」で、支払い成功時の領収書メールをオンにする（領収書番号がコード再表示に使われる）。
    ※テストモードでは領収書メールが自動で送られないことがあります。その場合は、Stripeの支払い詳細から手動で「領収書を送信」して試します。
 4. Stripe で**制限付きキー**（rk_…）を作る。権限は「Checkout Sessions」「PaymentIntents」「Charges」の読み取りだけ。
-5. Supabase の **Edge Functions** で `purchase` という名前の関数を作り、`supabase/functions/purchase/index.ts` の中身を貼って公開する。
+5. Supabase の **Edge Functions** で関数を作り（名前は `config.js` の `PURCHASE_FN` と同じにする。今は `swift-api`）、`supabase/functions/purchase/index.ts` の中身を貼って公開する。
    - 関数の設定で「JWTの検証（Verify JWT）」は**オフ**にする（購入者はログインしていないため）。
 6. Supabase の **Edge Functions → Secrets** に `STRIPE_SECRET_KEY`（4の rk_…）を登録する。任意で `STRIPE_PAYMENT_LINK`（plink_…）も登録すると、そのリンク以外の支払いではコードを出さない。
 7. `config.js` の `BUY_URL` に支払いリンク（https://buy.stripe.com/…）を入れる → ロック画面に「購入する」ボタンが出る。

@@ -720,7 +720,7 @@ function buildPrint(uid) {
 // ---- ネット購入（Stripe）----
 // サーバー側のプログラム（supabase/functions/purchase）を呼ぶ
 async function purchaseApi(body) {
-  const res = await fetch(CFG.SUPABASE_URL + "/functions/v1/purchase", { method: "POST", headers: rpcHeaders(), body: JSON.stringify(body) });
+  const res = await fetch(CFG.SUPABASE_URL + "/functions/v1/" + (CFG.PURCHASE_FN || "purchase"), { method: "POST", headers: rpcHeaders(), body: JSON.stringify(body) });
   let j = {}; try { j = await res.json(); } catch (e) {}
   if (!res.ok) { const e = new Error(j.error || "http"); e.status = res.status; e.code = j.error; throw e; }
   return j;

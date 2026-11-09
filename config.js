@@ -6,4 +6,6 @@ window.ILEAGUE_CONFIG = {
   SUPABASE_ANON_KEY: "sb_publishable_-yhkCh3AFrV6b9pKa26Rjw_MEkZlp0n",
   // Stripe の支払いリンク（https://buy.stripe.com/…）。空のあいだは「購入する」ボタンを出さない。
   BUY_URL: "",
+  // Supabase の Edge Function の名前（コード支払い確認用）
+  PURCHASE_FN: "swift-api",
 };

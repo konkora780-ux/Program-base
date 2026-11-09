@@ -284,7 +284,7 @@ async function saveSeason(isNew) {
     regulation: $("sRegulation").value, valid_from: $("sFrom").value, valid_to: $("sTo").value,
     is_current: $("sCurrent").checked, updated_at: new Date().toISOString() };
   if (!row.year || !row.title || !row.valid_from || !row.valid_to) return say("年度・タイトル・有効期間を入れてください。", false);
-  if (row.is_current) check(await sb.from("seasons").update({ is_current: false }).neq("id", isNew ? -1 : SID).eq("is_current", true), "販売中の切り替え");
+  if (row.is_current) check(await sb.from("seasons").update({ is_current: false }).neq("id", isNew || !SID ? -1 : SID).eq("is_current", true), "販売中の切り替え");
   const res = isNew || !SID ? await sb.from("seasons").insert(row).select().single()
                             : await sb.from("seasons").update(row).eq("id", SID).select().single();
   const s = check(res, "年度の保存");

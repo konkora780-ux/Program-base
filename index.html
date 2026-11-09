@@ -131,6 +131,12 @@ select.f{padding:8px;border-radius:8px;border:1px solid var(--line);background:v
   .pb .pn{font-size:10pt;text-align:center}
   .pb .pnm{font-size:9.5pt;font-weight:700;line-height:1.1}
   .pb .pnm.nc{font-size:8.5pt;font-weight:400}
+  /* 5〜6文字の名前も1行に収める（姓名の間を詰め、文字を少し小さく） */
+  .pb .pnm{white-space:nowrap}
+  .pb .pnm .sp{display:inline-block;width:.3em}
+  .pb .pnm.l5{font-size:8.5pt}
+  .pb .pnm.l6{font-size:7.5pt;letter-spacing:-.02em}
+  .pb .pnm.l6 rt{font-size:4.5pt}
   .pb .pi{font-size:6pt;color:#222;line-height:1.2;min-width:0;overflow:hidden}
   .pb .pi span{display:block;white-space:nowrap;height:1.2em}
   .pb .pi b{font-weight:400;color:#666;margin-right:.3em}
@@ -543,10 +549,10 @@ function uniformTable(u) {
     ${row("シャツ", "top")}${row("ショーツ", "bottom")}${row("ストッキング", "socks")}</table>`;
 }
 // 「姓 名」と「せい めい」の区切りが合えば、姓・名それぞれの上にふりがなを付ける
-function rubyName(name, kana) {
-  if (!kana) return h(name);
+function rubyName(name, kana, gap = "　") {
+  if (!kana) return gap === "　" ? h(name) : String(name).trim().split(/[\s　]+/).map(h).join(gap);
   const n = String(name).trim().split(/[\s　]+/), k = String(kana).trim().split(/[\s　]+/);
-  if (n.length === k.length) return n.map((x, i) => `<ruby>${h(x)}<rt>${h(k[i])}</rt></ruby>`).join("　");
+  if (n.length === k.length) return n.map((x, i) => `<ruby>${h(x)}<rt>${h(k[i])}</rt></ruby>`).join(gap);
   return `<ruby>${h(name)}<rt>${h(kana)}</rt></ruby>`;
 }
 function staffList(t) {
@@ -672,10 +678,15 @@ function piLine(text, label) {
   }
   return `<span${style}>${label ? `<b>${label}</b>` : ""}${h(t)}</span>`;
 }
+// 名前の文字数（空白を除く）で、冊子の名前欄の文字の大きさを決める
+function nameSize(name) {
+  const n = String(name || "").replace(/[\s　]/g, "").length;
+  return n >= 6 ? " l6" : n === 5 ? " l5" : "";
+}
 // 印刷の選手1人分（現行冊子にならい、3段組のブロックで並べる）
 function playerBlock(p) {
   return p.consent
-    ? `<div class="pb"><div class="pn">${h(p.number)}</div><div class="pp2">${h(p.position)}</div><div class="pnm">${rubyName(p.name, p.name_kana)}</div>
+    ? `<div class="pb"><div class="pn">${h(p.number)}</div><div class="pp2">${h(p.position)}</div><div class="pnm${nameSize(p.name)}">${rubyName(p.name, p.name_kana, '<span class="sp"></span>')}</div>
         <div class="pi">${piLine(withUnit(p.grade, "年") + "　" + withUnit(p.height, "cm"))}${piLine(p.club_u12, "U12")}${piLine(p.club_u15, "U15")}</div></div>`
     : `<div class="pb"><div class="pn">${h(p.number)}</div><div class="pp2">${h(p.position)}</div><div class="pnm nc">（掲載なし）</div><div class="pi">${h(withUnit(p.grade, "年"))}</div></div>`;
 }

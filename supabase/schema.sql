@@ -139,6 +139,29 @@ create table if not exists public.access_codes (
   use_count     int not null default 0
 );
 
+-- ネット購入（Stripe）の記録。支払い1件につきコード1つ。
+-- コードの再表示（購入者がコードを忘れたとき）のため、ここだけはコード本体も保存する。読めるのは管理者とサーバーだけ。
+create table if not exists public.purchases (
+  id                serial primary key,
+  stripe_session_id text not null unique,     -- Stripeの支払い番号（cs_…）
+  access_code_id    int references public.access_codes(id) on delete set null,
+  code              text not null,
+  email             text not null default '',  -- 購入時のメールアドレス（問い合わせ時の照合用）
+  payment_intent    text not null default '',  -- Stripeの支払いID（pi_…）。コード再表示のとき領収書番号の照合に使う
+  amount            int,
+  created_at        timestamptz not null default now()
+);
+create index if not exists purchases_email_idx on public.purchases(lower(email));
+alter table public.purchases add column if not exists payment_intent text not null default '';
+-- 「コードを忘れた方」の試行記録（間違いが続いたら一時的に止めるため）
+create table if not exists public.recovery_attempts (
+  id         bigserial primary key,
+  email      text not null,
+  ok         boolean not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists recovery_attempts_idx on public.recovery_attempts(email, created_at);
+
 -- ---------------------------------------------------------------------
 -- RLS（表を直接読めるのは管理者だけ）
 -- ---------------------------------------------------------------------
@@ -156,6 +179,8 @@ alter table public.team_photos  enable row level security;
 alter table public.players      enable row level security;
 alter table public.matches      enable row level security;
 alter table public.access_codes enable row level security;
+alter table public.purchases    enable row level security;
+alter table public.recovery_attempts enable row level security;
 
 drop policy if exists admin_all on public.admins;
 create policy admin_all on public.admins       for select to authenticated using (public.is_admin());
@@ -173,6 +198,8 @@ drop policy if exists admin_all on public.matches;
 create policy admin_all on public.matches      for all to authenticated using (public.is_admin()) with check (public.is_admin());
 drop policy if exists admin_all on public.access_codes;
 create policy admin_all on public.access_codes for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists admin_read on public.purchases;
+create policy admin_read on public.purchases  for select to authenticated using (public.is_admin());
 
 -- 閲覧者（anon）からは表への権限そのものも外しておく（二重の鍵）
 revoke all on all tables in schema public from anon;
@@ -315,36 +342,100 @@ end $$;
 -- ---------------------------------------------------------------------
 
 -- コードを n 個発行し、コード本体はこの1回だけ返す（あとから見ることはできません）
-create or replace function public.admin_issue_codes(p_season_id int, p_count int, p_memo text default '')
+-- コードを1つ作って保存し、（購入番号, コード）を返す。内部用。
+create or replace function public._new_code(p_season_id int, p_memo text)
 returns table(serial int, code text) language plpgsql volatile security definer
 set search_path = public, extensions
 as $$
 declare
   alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';  -- 見間違えやすい 0 O 1 I を除いた32文字
-  b bytea; raw text; i int; k int; new_id int;
+  b bytea; raw text; k int; new_id int;
+begin
+  loop
+    b := extensions.gen_random_bytes(12);
+    raw := '';
+    for k in 0..11 loop
+      raw := raw || substr(alphabet, (get_byte(b, k) % 32) + 1, 1);  -- 256は32で割り切れるので偏りなし
+    end loop;
+    begin
+      insert into public.access_codes(season_id, code_hash, hint, memo)
+      values (p_season_id, public._hash_code(raw), right(raw, 4), coalesce(p_memo, ''))
+      returning id into new_id;
+      exit;
+    exception when unique_violation then
+      -- ごくまれな重複は作り直し
+    end;
+  end loop;
+  serial := new_id;
+  code := substr(raw,1,4) || '-' || substr(raw,5,4) || '-' || substr(raw,9,4);
+  return next;
+end $$;
+
+create or replace function public.admin_issue_codes(p_season_id int, p_count int, p_memo text default '')
+returns table(serial int, code text) language plpgsql volatile security definer
+set search_path = public, extensions
+as $$
+declare i int;
 begin
   if not public.is_admin() then raise exception 'admin only' using errcode = '42501'; end if;
   if p_count < 1 or p_count > 500 then raise exception '1〜500個の範囲で指定してください'; end if;
   for i in 1..p_count loop
-    loop
-      b := extensions.gen_random_bytes(12);
-      raw := '';
-      for k in 0..11 loop
-        raw := raw || substr(alphabet, (get_byte(b, k) % 32) + 1, 1);  -- 256は32で割り切れるので偏りなし
-      end loop;
-      begin
-        insert into public.access_codes(season_id, code_hash, hint, memo)
-        values (p_season_id, public._hash_code(raw), right(raw, 4), coalesce(p_memo, ''))
-        returning id into new_id;
-        exit;
-      exception when unique_violation then
-        -- ごくまれな重複は作り直し
-      end;
-    end loop;
-    serial := new_id;
-    code := substr(raw,1,4) || '-' || substr(raw,5,4) || '-' || substr(raw,9,4);
-    return next;
+    return query select * from public._new_code(p_season_id, p_memo);
   end loop;
+end $$;
+
+-- ネット購入1件に対してコードを渡す。同じ支払い番号なら何度呼んでも同じコードを返す（再読み込み対策）。
+-- サーバー（Edge Function）だけが呼べる。支払い済みかどうかの確認は Edge Function 側で Stripe に問い合わせて行う。
+drop function if exists public.claim_purchase_code(text, text, int);
+create or replace function public.claim_purchase_code(p_session_id text, p_email text, p_amount int, p_payment_intent text)
+returns jsonb language plpgsql volatile security definer
+set search_path = public, extensions
+as $$
+declare p public.purchases; sid int; nc record;
+begin
+  if coalesce(p_session_id, '') !~ '^cs_[A-Za-z0-9_]+$' then raise exception 'bad session'; end if;
+  perform pg_advisory_xact_lock(hashtext(p_session_id));   -- 同時に2回呼ばれても1つだけ作る
+  select * into p from public.purchases where stripe_session_id = p_session_id;
+  if found then
+    return jsonb_build_object('code', p.code, 'serial', p.access_code_id, 'new', false);
+  end if;
+  select id into sid from public.seasons where is_current;
+  if sid is null then raise exception '販売中の年度がありません'; end if;
+  select * into nc from public._new_code(sid, 'ネット購入');
+  insert into public.purchases(stripe_session_id, access_code_id, code, email, amount, payment_intent)
+  values (p_session_id, nc.serial, nc.code, lower(trim(coalesce(p_email, ''))), p_amount, coalesce(p_payment_intent, ''));
+  return jsonb_build_object('code', nc.code, 'serial', nc.serial, 'new', true);
+end $$;
+
+-- 「コードを忘れた方」その1：メールアドレスに当てはまる購入を返す（直近1時間に5回間違えていたら止める）。サーバー専用。
+create or replace function public.recover_lookup(p_email text)
+returns jsonb language plpgsql volatile security definer
+set search_path = public
+as $$
+declare e text := lower(trim(coalesce(p_email, '')));
+begin
+  if (select count(*) from public.recovery_attempts
+       where email = e and not ok and created_at > now() - interval '1 hour') >= 5 then
+    return jsonb_build_object('locked', true);
+  end if;
+  return jsonb_build_object('locked', false, 'items', coalesce((
+    select jsonb_agg(jsonb_build_object('id', id, 'pi', payment_intent) order by id desc)
+      from public.purchases where email = e and payment_intent <> ''), '[]'::jsonb));
+end $$;
+
+-- 「コードを忘れた方」その2：照合の結果を記録し、合っていればコードを返す。サーバー専用。
+create or replace function public.recover_finish(p_email text, p_purchase_id int)
+returns jsonb language plpgsql volatile security definer
+set search_path = public
+as $$
+declare e text := lower(trim(coalesce(p_email, ''))); c text;
+begin
+  if p_purchase_id is not null then
+    select code into c from public.purchases where id = p_purchase_id and email = e;
+  end if;
+  insert into public.recovery_attempts(email, ok) values (e, c is not null);
+  if c is null then return jsonb_build_object('ok', false); end if;
+  return jsonb_build_object('ok', true, 'code', c);
 end $$;
 
 -- 年度に既定のリーグ一覧（まだ1つもないときだけ）を入れる
@@ -441,3 +532,6 @@ grant execute on function public.admin_set_code_status(int, text)  to authentica
 grant execute on function public.admin_seed_divisions(int)    to authenticated;
 grant execute on function public.admin_find_code(text)        to authenticated;
 grant execute on function public.admin_import_team(int, jsonb) to authenticated;
+grant execute on function public.claim_purchase_code(text, text, int, text) to service_role;
+grant execute on function public.recover_lookup(text)           to service_role;
+grant execute on function public.recover_finish(text, int)      to service_role;

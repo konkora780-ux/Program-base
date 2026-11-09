@@ -157,6 +157,13 @@ code.big{font-size:1.05rem;letter-spacing:.06em}
         <div id="cFound"></div>
         <div class="scroll"><table id="codeTable"></table></div>
       </div>
+      <div class="card">
+        <h3 style="margin-top:0">ネット購入の記録</h3>
+        <p class="muted">Stripeで支払った人の記録です。購入者から「コードが分からない」と問い合わせがあったときは、購入時のメールアドレスで調べると、その人のコードが表示されます。<br>
+        購入者自身もアプリの「コードを忘れた方」から、メールアドレスと領収書番号で再表示できます。</p>
+        <div class="row"><input id="pFind" type="email" placeholder="メールアドレス（空欄なら最新50件）"><button class="btn sub" id="pFindBtn">調べる</button></div>
+        <div class="scroll"><table id="purchaseTable"></table></div>
+      </div>
     </section>
   </div>
 </main>
@@ -555,6 +562,19 @@ $("cFindBtn").addEventListener("click", async () => {
   const r = check(await sb.rpc("admin_find_code", { p_code: $("cFind").value }), "検索");
   $("cFound").innerHTML = r.length ? `<div class="msg ok">購入番号 No.${String(r[0].id).padStart(4, "0")}（${r[0].status === "active" ? "有効" : "停止中"}／メモ：${h(r[0].memo) || "なし"}）</div>`
                                    : `<div class="msg ng">該当するコードはありません。</div>`;
+});
+
+// ネット購入の記録（メールアドレスで検索。空欄なら最新50件）
+$("pFindBtn").addEventListener("click", async () => {
+  const q = $("pFind").value.trim().toLowerCase();
+  let req = sb.from("purchases").select("id, created_at, email, code, access_code_id, amount").order("id", { ascending: false }).limit(50);
+  if (q) req = req.eq("email", q);
+  const rows = check(await req, "購入記録の読み込み");
+  $("purchaseTable").innerHTML = rows.length
+    ? `<tr><th>購入日時</th><th>メールアドレス</th><th>閲覧コード</th><th>購入番号</th><th>金額</th></tr>` + rows.map((r) => `
+      <tr><td>${h(new Date(r.created_at).toLocaleString("ja-JP"))}</td><td>${h(r.email)}</td><td><b>${h(r.code)}</b></td>
+      <td>${r.access_code_id ? "No." + String(r.access_code_id).padStart(4, "0") : "-"}</td><td>${r.amount == null ? "-" : h(r.amount) + "円"}</td></tr>`).join("")
+    : `<tr><td>該当する購入はありません。</td></tr>`;
 });
 
 start();

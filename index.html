@@ -31,6 +31,12 @@ button,input,select{font:inherit}
 .btn.ghost{background:transparent;color:var(--brand);border:1px solid var(--line);padding:8px 12px;font-weight:600}
 .btn:disabled{opacity:.5}
 .err{color:var(--warn);font-size:.9rem;min-height:1.5em;margin-top:8px}
+.lockbox .sub{display:block;width:100%;margin-top:10px;padding:12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;text-decoration:none;cursor:pointer}
+.lockbox .sub.buy{background:var(--card2,transparent);border-color:var(--brand);color:var(--brand);font-weight:700}
+.lockbox .link{background:none;border:0;color:var(--sub);text-decoration:underline;font:inherit;font-size:.85rem;cursor:pointer;margin-top:12px}
+.lockbox input.plain{text-transform:none;letter-spacing:0;font-size:1rem;margin-top:8px;text-align:left}
+.lockbox .bigcode{font-family:var(--num,inherit);font-size:1.6rem;letter-spacing:.12em;font-weight:700;color:var(--brand);border:2px dashed var(--brand);border-radius:12px;padding:14px 8px;margin:8px 0 12px;user-select:all}
+.lockbox .note{font-size:.85rem;color:var(--sub);text-align:left;margin:0 0 12px}
 
 /* アプリ */
 header.top{position:sticky;top:0;z-index:5;background:var(--brand);color:var(--brand-ink);padding:10px 16px;display:flex;align-items:center;gap:8px}
@@ -190,7 +196,7 @@ table.uni th{background:var(--soft);color:var(--brand)}
 <body>
 
 <div id="lock">
-  <div class="lockbox">
+  <div class="lockbox" id="lockMain">
     <h1 id="lockTitle">Iリーグ 公式プログラム</h1>
     <p>ご購入時にお送りした12けたの閲覧コードを入力してください。</p>
     <form id="lockForm" autocomplete="off">
@@ -198,7 +204,30 @@ table.uni th{background:var(--soft);color:var(--brand)}
       <button class="btn wide" id="codeBtn" type="submit">ひらく</button>
     </form>
     <div class="err" id="codeErr" role="alert"></div>
+    <a class="sub buy hidden" id="buyBtn" href="#">まだお持ちでない方：購入する</a>
+    <button class="link hidden" id="forgotBtn" type="button">コードを忘れた方</button>
     <p class="muted" style="margin-top:16px">コードは購入者お一人ずつ異なります。第三者への譲渡・共有はご遠慮ください。</p>
+  </div>
+  <!-- コードを忘れた方 -->
+  <div class="lockbox hidden" id="forgotBox">
+    <h1>コードをもう一度表示する</h1>
+    <p>購入時のメールアドレスと、Stripeから届いた領収書メールに書かれている「領収書番号」（例：1234-5678）を入力してください。</p>
+    <form id="forgotForm" autocomplete="off">
+      <input id="fEmail" class="plain" type="email" placeholder="メールアドレス" aria-label="メールアドレス">
+      <input id="fReceipt" class="plain" inputmode="numeric" placeholder="領収書番号" aria-label="領収書番号">
+      <button class="btn wide" id="fBtn" type="submit" style="margin-top:12px">表示する</button>
+    </form>
+    <div class="err" id="fErr" role="alert"></div>
+    <button class="link" id="fBack" type="button">‹ コード入力にもどる</button>
+  </div>
+  <!-- 購入後・再表示のコード -->
+  <div class="lockbox hidden" id="paidBox">
+    <h1 id="paidTitle">ご購入ありがとうございます</h1>
+    <p id="paidMsg"></p>
+    <div class="bigcode" id="paidCode"></div>
+    <p class="note">このコードは、この端末に自動で保存しました。<b>別のスマホやパソコンで見るときに必要です。</b>スクリーンショットやメモで控えておいてください。</p>
+    <div class="err" id="paidErr" role="alert"></div>
+    <button class="btn wide hidden" id="paidOpen" type="button">プログラムをひらく</button>
   </div>
 </div>
 
@@ -688,9 +717,70 @@ function buildPrint(uid) {
     }).join("")}`;
 }
 
+// ---- ネット購入（Stripe）----
+// サーバー側のプログラム（supabase/functions/purchase）を呼ぶ
+async function purchaseApi(body) {
+  const res = await fetch(CFG.SUPABASE_URL + "/functions/v1/purchase", { method: "POST", headers: rpcHeaders(), body: JSON.stringify(body) });
+  let j = {}; try { j = await res.json(); } catch (e) {}
+  if (!res.ok) { const e = new Error(j.error || "http"); e.status = res.status; e.code = j.error; throw e; }
+  return j;
+}
+function showBox(id) {
+  for (const b of ["lockMain", "forgotBox", "paidBox"]) $(b).classList.toggle("hidden", b !== id);
+}
+function showCode(code, title, msg) {
+  CODE = code; store.set(code);
+  $("paidTitle").textContent = title; $("paidMsg").textContent = msg;
+  $("paidCode").textContent = code; $("paidErr").textContent = "";
+  $("paidOpen").classList.remove("hidden");
+  showBox("paidBox");
+}
+// 支払いが終わってアプリに戻ってきたとき（?paid=cs_…）
+async function claimPaid(sessionId) {
+  $("paidTitle").textContent = "ご購入ありがとうございます";
+  $("paidMsg").textContent = "閲覧コードを用意しています…";
+  $("paidCode").textContent = ""; showBox("paidBox");
+  for (let i = 0; i < 4; i++) {
+    try {
+      const r = await purchaseApi({ action: "claim", session_id: sessionId });
+      history.replaceState(null, "", location.pathname + location.hash);
+      showCode(r.code, "ご購入ありがとうございます", "あなたの閲覧コードです。");
+      return;
+    } catch (e) {
+      if (e.status === 402 && i < 3) { await new Promise((ok) => setTimeout(ok, 2000)); continue; } // 支払いの反映待ち
+      $("paidMsg").textContent = "";
+      $("paidErr").textContent = e.status === 402 || e.status === 400 || e.status === 403
+        ? "お支払いを確認できませんでした。お手数ですが、運営までお問い合わせください。"
+        : "通信できませんでした。電波の良いところで、このページを再読み込みしてください（二重に請求されることはありません）。";
+      return;
+    }
+  }
+}
+$("paidOpen").addEventListener("click", async () => { showBox("lockMain"); await openApp(); });
+$("forgotBtn").addEventListener("click", () => { $("fErr").textContent = ""; showBox("forgotBox"); });
+$("fBack").addEventListener("click", () => showBox("lockMain"));
+$("forgotForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = $("fEmail").value.trim(), receipt = $("fReceipt").value.trim();
+  if (!email.includes("@") || receipt.replace(/[^0-9]/g, "").length < 4) { $("fErr").textContent = "メールアドレスと領収書番号を入力してください。"; return; }
+  $("fBtn").disabled = true; $("fErr").textContent = "";
+  try {
+    const r = await purchaseApi({ action: "recover", email, receipt });
+    showCode(r.code, "閲覧コード", "ご購入いただいた閲覧コードです。");
+  } catch (err) {
+    $("fErr").textContent = err.status === 429 ? "入力の間違いが続いたため、1時間ほど時間をおいてからお試しください。"
+      : err.status === 404 || err.status === 400 ? "見つかりませんでした。メールアドレスと領収書番号をご確認ください。"
+      : "通信できませんでした。電波の良いところでお試しください。";
+  }
+  $("fBtn").disabled = false;
+});
+
 // ---- 起動 ----
 (async function start() {
   if (DEMO) { $("lockTitle").textContent = "見本モード（コード：DEMO-DEMO-DEMO）"; }
+  if (CFG.BUY_URL && !DEMO) { $("buyBtn").href = CFG.BUY_URL; $("buyBtn").classList.remove("hidden"); $("forgotBtn").classList.remove("hidden"); }
+  const paid = new URLSearchParams(location.search).get("paid");
+  if (paid && !DEMO) { await claimPaid(paid); return; }
   const saved = store.get();
   if (saved) { CODE = saved; await openApp(); }
 })();

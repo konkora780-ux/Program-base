@@ -33,6 +33,14 @@ button,input,select{font:inherit}
 .err{color:var(--warn);font-size:.9rem;min-height:1.5em;margin-top:8px}
 .lockbox .sub{display:block;width:100%;margin-top:10px;padding:12px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;text-decoration:none;cursor:pointer}
 .lockbox .sub.buy{background:var(--card2,transparent);border-color:var(--brand);color:var(--brand);font-weight:700}
+.perks{margin-top:20px;padding:14px 14px 12px;border:1px solid var(--line);border-radius:12px;text-align:left}
+.perks-h{font-weight:700;font-size:.95rem;margin-bottom:8px;color:var(--brand)}
+.perks ul{list-style:none;margin:0;padding:0}
+.perks li{position:relative;padding:0 0 8px 1.4em;font-size:.85rem;line-height:1.55;color:var(--sub)}
+.perks li::before{content:"✓";position:absolute;left:0;top:0;color:var(--brand);font-weight:700}
+.perks li b{display:block;color:var(--ink);font-size:.9rem}
+.perks-price{border-top:1px solid var(--line);padding-top:10px;margin-top:2px;font-weight:700;font-size:1.15rem;text-align:center}
+.perks-price span{font-weight:400;font-size:.8rem;color:var(--sub)}
 .lockbox .link{background:none;border:0;color:var(--sub);text-decoration:underline;font:inherit;font-size:.85rem;cursor:pointer;margin-top:12px}
 .lockbox input.plain{text-transform:none;letter-spacing:0;font-size:1rem;margin-top:8px;text-align:left}
 .lockbox .bigcode{font-family:var(--num,inherit);font-size:1.6rem;letter-spacing:.12em;font-weight:700;color:var(--brand);border:2px dashed var(--brand);border-radius:12px;padding:14px 8px;margin:8px 0 12px;user-select:all}
@@ -210,6 +218,24 @@ table.uni th{background:var(--soft);color:var(--brand)}
       <button class="btn wide" id="codeBtn" type="submit">ひらく</button>
     </form>
     <div class="err" id="codeErr" role="alert"></div>
+    <!-- 購入のメリット（BUY_URL があるときだけ表示）。実装済みの機能だけを書くこと -->
+    <div class="perks hidden" id="perks">
+      <div class="perks-h">デジタル版プログラムでできること</div>
+      <ul>
+        <li><b>スマホでいつでも</b>全チームの紹介・選手名鑑・日程を、会場でもすぐに確認できます。</li>
+        <li><b>印刷して冊子にも</b>A4の公式冊子を、ご自身で印刷できます。</li>
+        <li><b>今年度いっぱい（3月31日まで）</b>内容に変更があったときは、アプリの中で更新します。</li>
+        <li><b>リーグの応援に</b>売上は、Iリーグの運営に使われます。</li>
+        <!-- 実装したら追加する候補（未実装のあいだは書かない）
+        <li><b>家族4台まで</b>1つのコードで、ご家族のスマホ4台まで使えます。</li>
+        <li><b>背番号ですぐ分かる</b>試合中に背番号を押すだけで、選手の名前がわかります。</li>
+        <li><b>順位表はアプリだけ</b>試合結果から、リーグの順位を自動で計算して表示します。</li>
+        <li><b>推しチームの試合をカレンダーへ</b>ボタン1つでスマホの予定に入ります。</li>
+        <li><b>1年生も追加</b>新入生が登録されたら、名簿に追加します。</li>
+        -->
+      </ul>
+      <div class="perks-price">1,000円<span>（今年度分・1回のお支払い）</span></div>
+    </div>
     <a class="sub buy hidden" id="buyBtn" href="#">まだお持ちでない方：購入する</a>
     <button class="link hidden" id="forgotBtn" type="button">コードを忘れた方</button>
     <p class="muted" style="margin-top:16px">コードは購入者お一人ずつ異なります。第三者への譲渡・共有はご遠慮ください。</p>
@@ -789,7 +815,7 @@ $("forgotForm").addEventListener("submit", async (e) => {
 // ---- 起動 ----
 (async function start() {
   if (DEMO) { $("lockTitle").textContent = "見本モード（コード：DEMO-DEMO-DEMO）"; }
-  if (CFG.BUY_URL && !DEMO) { $("buyBtn").href = CFG.BUY_URL; $("buyBtn").classList.remove("hidden"); $("forgotBtn").classList.remove("hidden"); }
+  if (CFG.BUY_URL && !DEMO) { $("buyBtn").href = CFG.BUY_URL; $("buyBtn").classList.remove("hidden"); $("perks").classList.remove("hidden"); $("forgotBtn").classList.remove("hidden"); }
   const paid = new URLSearchParams(location.search).get("paid");
   if (paid && !DEMO) { await claimPaid(paid); return; }
   const saved = store.get();
